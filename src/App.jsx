@@ -9,6 +9,7 @@ import Historial from './pages/Historial'
 import Admin from './pages/Admin'
 import SubirInventario from './pages/SubirInventario'
 import Reportes from './pages/Reportes'
+import GestionUsuarios from './pages/GestionUsuarios'
 import Layout from './components/Layout'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
             <Route path="/admin" element={<Admin />} />
             <Route path="/inventario" element={<SubirInventario />} />
             <Route path="/reportes" element={<Reportes />} />
+            <Route path="/admin/usuarios" element={<GestionUsuarios />} />
           </Route>
         </Routes>
       </OfflineProvider>

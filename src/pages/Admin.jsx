@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet } from 'lucide-react'
+import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet, BarChart2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Admin() {
@@ -21,23 +21,29 @@ export default function Admin() {
 
   const menuItems = [
     {
-      icon: Warehouse,
-      title: 'Gestionar Almacenes',
-      desc: 'Configurar PINs y responsables',
-      action: () => alert('Próximamente')
-    },
-    {
       icon: Users,
       title: 'Gestionar Usuarios',
       desc: 'Crear y editar operadores',
-      action: () => alert('Próximamente')
+      action: () => navigate('/admin/usuarios')
     },
     {
       icon: FileSpreadsheet,
       title: 'Subir Inventario Base',
       desc: 'Importar productos desde Excel',
       action: () => navigate('/inventario')
-    }
+    },
+    {
+      icon: BarChart2,
+      title: 'Reportes',
+      desc: 'Exportar PDF y Excel',
+      action: () => navigate('/reportes')
+    },
+    {
+      icon: Warehouse,
+      title: 'Gestionar Almacenes',
+      desc: 'Configurar PINs y responsables',
+      action: () => alert('Próximamente')
+    },
   ]
 
   return (

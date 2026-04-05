@@ -85,7 +85,6 @@ export default function NuevaTransferencia() {
 
     setLoading(true)
     try {
-      const codigoQr = `TRF-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
       const transferencia = {
         origen_id: origenId,
         destino_id: destinoId,
@@ -93,8 +92,6 @@ export default function NuevaTransferencia() {
         recibe_nombre: recibeNombre,
         fecha_hora: new Date().toISOString(),
         estado: 'pendiente',
-        codigo_qr: codigoQr,
-        creado_por: user?.id,
       }
 
       if (isOffline) {
