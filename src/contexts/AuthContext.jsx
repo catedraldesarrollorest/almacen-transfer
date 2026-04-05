@@ -3,70 +3,64 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
+const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '940209'
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [session, setSession] = useState(null) // { rol, warehouseId, warehouseName }
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [warehouseId, setWarehouseId] = useState(null)
 
   useEffect(() => {
-    // Cargar sesión inicial — await checkUserRole antes de quitar loading
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await checkUserRole(session.user.id)
-      }
-      setLoading(false)
-    })
-
-    // Escuchar cambios de sesión (login / logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await checkUserRole(session.user.id)
-        } else {
-          setIsAdmin(false)
-          setWarehouseId(null)
-        }
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    // Cargar sesión guardada
+    try {
+      const stored = localStorage.getItem('almacen_session')
+      if (stored) setSession(JSON.parse(stored))
+    } catch {
+      localStorage.removeItem('almacen_session')
+    }
+    setLoading(false)
   }, [])
 
-  async function checkUserRole(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('rol, warehouse_id')
-        .eq('id', userId)
-        .single()
+  async function signIn(pin) {
+    const pinStr = String(pin).trim()
 
-      if (!error && data) {
-        setIsAdmin(data.rol === 'admin')
-        setWarehouseId(data.warehouse_id ?? null)
-        localStorage.setItem('user_info', JSON.stringify(data))
-      }
-    } catch (e) {
-      console.error('Error al verificar rol:', e)
+    // PIN de administrador
+    if (pinStr === ADMIN_PIN) {
+      const s = { rol: 'admin', warehouseId: null, warehouseName: 'Admin' }
+      localStorage.setItem('almacen_session', JSON.stringify(s))
+      setSession(s)
+      return
     }
+
+    // PIN de almacén
+    const { data, error } = await supabase
+      .from('warehouses')
+      .select('id, nombre')
+      .eq('pin', pinStr)
+      .eq('activo', true)
+      .single()
+
+    if (error || !data) throw new Error('PIN incorrecto')
+
+    const s = { rol: 'operador', warehouseId: data.id, warehouseName: data.nombre }
+    localStorage.setItem('almacen_session', JSON.stringify(s))
+    setSession(s)
   }
 
-  async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    return data
-  }
-
-  async function signOut() {
-    localStorage.removeItem('user_info')
-    return supabase.auth.signOut()
+  function signOut() {
+    localStorage.removeItem('almacen_session')
+    setSession(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, warehouseId, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user: session,
+      isAdmin: session?.rol === 'admin',
+      warehouseId: session?.warehouseId ?? null,
+      warehouseName: session?.warehouseName ?? null,
+      loading,
+      signIn,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   )

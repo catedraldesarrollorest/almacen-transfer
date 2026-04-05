@@ -4,8 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Warehouse } from 'lucide-react'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
@@ -13,70 +12,99 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (!pin.trim()) return
     setError('')
     setLoading(true)
     try {
-      await signIn(email, password)
+      await signIn(pin)
       navigate('/')
     } catch (err) {
-      setError(err.message || 'Error al iniciar sesión')
+      setError(err.message || 'PIN incorrecto')
+      setPin('')
     } finally {
       setLoading(false)
     }
   }
 
+  function handleDigit(d) {
+    if (pin.length < 10) setPin(p => p + d)
+    setError('')
+  }
+
+  function handleBorrar() {
+    setPin(p => p.slice(0, -1))
+    setError('')
+  }
+
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫']
+
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-xs">
+        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <Warehouse className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold text-white">AlmacenTransfer</h1>
-          <p className="text-blue-200 text-sm mt-1">Gestión de transferencias</p>
+          <p className="text-blue-200 text-sm mt-1">Ingresa tu PIN para acceder</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-xl">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Iniciar sesión</h2>
+        <form onSubmit={handleSubmit}>
+          {/* Pantalla PIN */}
+          <div className="bg-white/10 rounded-2xl p-4 mb-4 text-center">
+            <div className="flex justify-center items-center gap-3 h-10">
+              {pin.length === 0 ? (
+                <span className="text-blue-200 text-sm">Ingresa tu PIN</span>
+              ) : (
+                Array.from({ length: pin.length }).map((_, i) => (
+                  <div key={i} className="w-3 h-3 rounded-full bg-white" />
+                ))
+              )}
+            </div>
+          </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-error text-sm rounded-lg p-3 mb-4">
+            <div className="bg-red-500/20 border border-red-400/30 text-red-200 text-sm rounded-xl p-3 mb-4 text-center">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                placeholder="usuario@ejemplo.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-white rounded-lg py-3 text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-60"
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </form>
-        </div>
+          {/* Teclado numérico */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {digits.map((d, i) => (
+              d === '' ? (
+                <div key={i} />
+              ) : d === '⌫' ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={handleBorrar}
+                  className="h-16 rounded-2xl bg-white/10 text-white text-xl font-medium flex items-center justify-center active:bg-white/20 transition"
+                >
+                  {d}
+                </button>
+              ) : (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleDigit(d)}
+                  className="h-16 rounded-2xl bg-white/10 text-white text-2xl font-semibold flex items-center justify-center active:bg-white/20 transition"
+                >
+                  {d}
+                </button>
+              )
+            ))}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !pin}
+            className="w-full bg-white text-primary rounded-2xl py-4 font-bold text-base disabled:opacity-40 transition"
+          >
+            {loading ? 'Verificando...' : 'Entrar'}
+          </button>
+        </form>
       </div>
     </div>
   )
