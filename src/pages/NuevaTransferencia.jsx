@@ -2,42 +2,43 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Search } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos, createTransferencia } from '../lib/supabase'
 import { guardarTransferenciaPendiente } from '../lib/offlineDB'
-import { useOffline } from '../contexts/OfflineContext'
-import QRCode from 'qrcode'
 
 export default function NuevaTransferencia() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isAdmin, warehouseId } = useAuth()
   const { isOffline } = useOffline()
 
   const [almacenes, setAlmacenes] = useState([])
+  // Operador: origen fijo a su almacén. Admin: puede elegir.
   const [origenId, setOrigenId] = useState('')
   const [destinoId, setDestinoId] = useState('')
   const [entregaNombre, setEntregaNombre] = useState('')
   const [recibeNombre, setRecibeNombre] = useState('')
   const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '' }])
-  const [busqueda, setBusqueda] = useState('')
   const [sugerencias, setSugerencias] = useState([])
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getWarehouses().then(setAlmacenes).catch(console.error)
-  }, [])
+    getWarehouses().then(data => {
+      setAlmacenes(data)
+      // Si es operador, fijar el origen a su almacén
+      if (!isAdmin && warehouseId) {
+        setOrigenId(String(warehouseId))
+      }
+    }).catch(console.error)
+  }, [isAdmin, warehouseId])
 
   async function buscarProductos(idx, query) {
     const updated = [...productos]
     updated[idx].nombre = query
     setProductos(updated)
     setProductoActivo(idx)
-
-    if (query.length < 2) {
-      setSugerencias([])
-      return
-    }
+    if (query.length < 2) { setSugerencias([]); return }
     const results = await getProductos(query)
     setSugerencias(results || [])
   }
@@ -56,6 +57,7 @@ export default function NuevaTransferencia() {
   }
 
   function eliminarProducto(idx) {
+    if (productos.length === 1) return
     setProductos(productos.filter((_, i) => i !== idx))
   }
 
@@ -86,8 +88,8 @@ export default function NuevaTransferencia() {
     setLoading(true)
     try {
       const transferencia = {
-        origen_id: origenId,
-        destino_id: destinoId,
+        origen_id: parseInt(origenId),
+        destino_id: parseInt(destinoId),
         entrega_nombre: entregaNombre,
         recibe_nombre: recibeNombre,
         fecha_hora: new Date().toISOString(),
@@ -102,17 +104,14 @@ export default function NuevaTransferencia() {
 
       const created = await createTransferencia(transferencia)
 
-      // Guardar productos
-      if (productosValidos.length > 0) {
-        await supabase.from('transferencia_productos').insert(
-          productosValidos.map(p => ({
-            transferencia_id: created.id,
-            producto: p.nombre,
-            cantidad: parseFloat(p.cantidad),
-            unidad: p.unidad
-          }))
-        )
-      }
+      await supabase.from('transferencia_productos').insert(
+        productosValidos.map(p => ({
+          transferencia_id: created.id,
+          producto: p.nombre,
+          cantidad: parseFloat(p.cantidad),
+          unidad: p.unidad
+        }))
+      )
 
       navigate('/')
     } catch (err) {
@@ -121,6 +120,11 @@ export default function NuevaTransferencia() {
       setLoading(false)
     }
   }
+
+  // Almacenes disponibles para destino (excluir el origen)
+  const almacenesDestino = almacenes.filter(a => String(a.id) !== origenId)
+
+  const origenNombre = almacenes.find(a => String(a.id) === origenId)?.nombre
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -143,30 +147,40 @@ export default function NuevaTransferencia() {
         {/* Almacenes */}
         <div className="bg-white rounded-xl p-4 shadow-sm space-y-3">
           <h2 className="font-semibold text-gray-900">Almacenes</h2>
+
+          {/* Origen */}
           <div>
             <label className="block text-sm text-gray-600 mb-1">Origen</label>
-            <select
-              value={origenId}
-              onChange={(e) => setOrigenId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              required
-            >
-              <option value="">Seleccionar almacén</option>
-              {almacenes.map(a => (
-                <option key={a.id} value={a.id}>{a.nombre}</option>
-              ))}
-            </select>
+            {!isAdmin && warehouseId ? (
+              <div className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700">
+                {origenNombre || 'Cargando...'}
+              </div>
+            ) : (
+              <select
+                value={origenId}
+                onChange={e => { setOrigenId(e.target.value); setDestinoId('') }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                required
+              >
+                <option value="">Seleccionar almacén</option>
+                {almacenes.map(a => (
+                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                ))}
+              </select>
+            )}
           </div>
+
+          {/* Destino */}
           <div>
             <label className="block text-sm text-gray-600 mb-1">Destino</label>
             <select
               value={destinoId}
-              onChange={(e) => setDestinoId(e.target.value)}
+              onChange={e => setDestinoId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               required
             >
               <option value="">Seleccionar almacén</option>
-              {almacenes.filter(a => a.id !== origenId).map(a => (
+              {almacenesDestino.map(a => (
                 <option key={a.id} value={a.id}>{a.nombre}</option>
               ))}
             </select>
@@ -177,21 +191,21 @@ export default function NuevaTransferencia() {
         <div className="bg-white rounded-xl p-4 shadow-sm space-y-3">
           <h2 className="font-semibold text-gray-900">Responsables</h2>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Entrega</label>
+            <label className="block text-sm text-gray-600 mb-1">Quien entrega</label>
             <input
               type="text"
               value={entregaNombre}
-              onChange={(e) => setEntregaNombre(e.target.value)}
+              onChange={e => setEntregaNombre(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Nombre de quien entrega"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Recibe</label>
+            <label className="block text-sm text-gray-600 mb-1">Quien recibe</label>
             <input
               type="text"
               value={recibeNombre}
-              onChange={(e) => setRecibeNombre(e.target.value)}
+              onChange={e => setRecibeNombre(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="Nombre de quien recibe"
             />
@@ -205,23 +219,22 @@ export default function NuevaTransferencia() {
             {productos.map((prod, idx) => (
               <div key={idx} className="border border-gray-200 rounded-lg p-3 space-y-2">
                 <div className="relative">
-                  <div className="flex items-center gap-2">
-                    <Search className="w-4 h-4 text-gray-400 absolute left-3" />
-                    <input
-                      type="text"
-                      value={prod.nombre}
-                      onChange={(e) => buscarProductos(idx, e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      placeholder="Buscar producto..."
-                    />
-                  </div>
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={prod.nombre}
+                    onChange={e => buscarProductos(idx, e.target.value)}
+                    onBlur={() => setTimeout(() => setSugerencias([]), 200)}
+                    className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Buscar producto..."
+                  />
                   {productoActivo === idx && sugerencias.length > 0 && (
                     <div className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
                       {sugerencias.map(s => (
                         <button
                           key={s.id}
                           type="button"
-                          onClick={() => seleccionarProducto(idx, s)}
+                          onMouseDown={() => seleccionarProducto(idx, s)}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                         >
                           {s.nombre}
@@ -235,8 +248,8 @@ export default function NuevaTransferencia() {
                   <input
                     type="number"
                     value={prod.cantidad}
-                    onChange={(e) => actualizarProducto(idx, 'cantidad', e.target.value)}
-                    className="w-1/2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    onChange={e => actualizarProducto(idx, 'cantidad', e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="Cantidad"
                     min="0"
                     step="0.01"
@@ -244,16 +257,12 @@ export default function NuevaTransferencia() {
                   <input
                     type="text"
                     value={prod.unidad}
-                    onChange={(e) => actualizarProducto(idx, 'unidad', e.target.value)}
-                    className="w-1/2 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="Unidad (kg, lt...)"
+                    onChange={e => actualizarProducto(idx, 'unidad', e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Unidad"
                   />
                   {productos.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => eliminarProducto(idx)}
-                      className="p-2 text-error hover:bg-red-50 rounded-lg"
-                    >
+                    <button type="button" onClick={() => eliminarProducto(idx)} className="p-2 text-error hover:bg-red-50 rounded-lg">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}

@@ -5,29 +5,40 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function Dashboard() {
-  const { user, isAdmin, signOut } = useAuth()
+  const { user, isAdmin, warehouseId, signOut } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState({ pendientes: 0, completadas: 0 })
   const [recientes, setRecientes] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadData()
-  }, [])
+    // Esperar a que el warehouseId esté cargado antes de hacer la query
+    if (isAdmin !== undefined) {
+      loadData()
+    }
+  }, [isAdmin, warehouseId])
 
   async function loadData() {
     try {
-      const { data: transferencias } = await supabase
+      let query = supabase
         .from('transferencias')
         .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
         .order('created_at', { ascending: false })
-        .limit(10)
+        .limit(20)
 
-      if (transferencias) {
-        setRecientes(transferencias.slice(0, 5))
+      // Operador: solo ve las transferencias de su almacén
+      if (!isAdmin && warehouseId) {
+        query = query.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      if (data) {
+        setRecientes(data.slice(0, 5))
         setStats({
-          pendientes: transferencias.filter(t => t.estado === 'pendiente').length,
-          completadas: transferencias.filter(t => t.estado === 'completado').length,
+          pendientes: data.filter(t => t.estado === 'pendiente').length,
+          completadas: data.filter(t => t.estado === 'completado').length,
         })
       }
     } catch (e) {
@@ -79,7 +90,6 @@ export default function Dashboard() {
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Quick action */}
         <button
           onClick={() => navigate('/nueva')}
           className="w-full bg-secondary text-white rounded-xl p-4 flex items-center gap-3 shadow-sm hover:bg-secondary/90 transition"
@@ -91,9 +101,10 @@ export default function Dashboard() {
           </div>
         </button>
 
-        {/* Recent transfers */}
         <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Recientes</h2>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            {isAdmin ? 'Transferencias recientes' : 'Mi almacén — recientes'}
+          </h2>
           {loading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>

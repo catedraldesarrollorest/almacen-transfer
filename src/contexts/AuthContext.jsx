@@ -7,18 +7,19 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [warehouseId, setWarehouseId] = useState(null)
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Cargar sesión inicial — await checkUserRole antes de quitar loading
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        checkUserRole(session.user.id)
+        await checkUserRole(session.user.id)
       }
       setLoading(false)
     })
 
-    // Listen for auth changes
+    // Escuchar cambios de sesión (login / logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setUser(session?.user ?? null)
@@ -26,6 +27,7 @@ export function AuthProvider({ children }) {
           await checkUserRole(session.user.id)
         } else {
           setIsAdmin(false)
+          setWarehouseId(null)
         }
         setLoading(false)
       }
@@ -35,24 +37,25 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function checkUserRole(userId) {
-    const { data, error } = await supabase
-      .from('users')
-      .select('rol, warehouse_id')
-      .eq('id', userId)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('rol, warehouse_id')
+        .eq('id', userId)
+        .single()
 
-    if (!error && data) {
-      setIsAdmin(data.rol === 'admin')
-      // Guardar info del usuario en localStorage para offline
-      localStorage.setItem('user_info', JSON.stringify(data))
+      if (!error && data) {
+        setIsAdmin(data.rol === 'admin')
+        setWarehouseId(data.warehouse_id ?? null)
+        localStorage.setItem('user_info', JSON.stringify(data))
+      }
+    } catch (e) {
+      console.error('Error al verificar rol:', e)
     }
   }
 
   async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     return data
   }
@@ -62,16 +65,8 @@ export function AuthProvider({ children }) {
     return supabase.auth.signOut()
   }
 
-  const value = {
-    user,
-    isAdmin,
-    loading,
-    signIn,
-    signOut
-  }
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, isAdmin, warehouseId, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

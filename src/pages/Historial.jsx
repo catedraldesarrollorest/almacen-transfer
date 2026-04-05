@@ -1,30 +1,38 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, Filter, ArrowRightLeft } from 'lucide-react'
+import { ArrowLeft, Search, ArrowRightLeft } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function Historial() {
   const navigate = useNavigate()
+  const { isAdmin, warehouseId } = useAuth()
   const [transferencias, setTransferencias] = useState([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
 
   useEffect(() => {
-    loadHistorial()
-  }, [])
+    if (isAdmin !== undefined) {
+      loadHistorial()
+    }
+  }, [isAdmin, warehouseId])
 
   async function loadHistorial() {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transferencias')
         .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(100)
 
-      if (!error && data) {
-        setTransferencias(data)
+      // Operador: solo ve las de su almacén
+      if (!isAdmin && warehouseId) {
+        query = query.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
       }
+
+      const { data, error } = await query
+      if (!error && data) setTransferencias(data)
     } catch (e) {
       console.error(e)
     } finally {
@@ -37,14 +45,14 @@ export default function Historial() {
     const matchBusqueda = !busqueda ||
       t.origen?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
       t.destino?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-      t.codigo_qr?.toLowerCase().includes(busqueda.toLowerCase())
+      t.codigo_qr?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      t.entrega_nombre?.toLowerCase().includes(busqueda.toLowerCase())
     return matchEstado && matchBusqueda
   })
 
   const estadoColor = {
     pendiente: 'bg-amber-100 text-amber-700',
     completado: 'bg-green-100 text-green-700',
-    autorizado: 'bg-blue-100 text-blue-700',
   }
 
   return (
@@ -54,7 +62,9 @@ export default function Historial() {
           <button onClick={() => navigate('/')} className="p-2 -ml-2">
             <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Historial</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {isAdmin ? 'Historial completo' : 'Mi historial'}
+          </h1>
         </div>
 
         <div className="relative mb-3">
@@ -62,9 +72,9 @@ export default function Historial() {
           <input
             type="text"
             value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
+            onChange={e => setBusqueda(e.target.value)}
             className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            placeholder="Buscar por almacén o código..."
+            placeholder="Buscar por almacén, nombre o código..."
           />
         </div>
 
@@ -104,19 +114,20 @@ export default function Historial() {
                     <p className="font-medium text-gray-900 text-sm truncate">
                       {t.origen?.nombre} → {t.destino?.nombre}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5 font-mono">{t.codigo_qr}</p>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                    {t.codigo_qr && (
+                      <p className="text-xs text-gray-400 mt-0.5 font-mono">{t.codigo_qr}</p>
+                    )}
+                    <div className="flex flex-wrap gap-x-3 mt-1 text-xs text-gray-500">
                       {t.entrega_nombre && <span>Entrega: {t.entrega_nombre}</span>}
+                      {t.recibe_nombre && <span>Recibe: {t.recibe_nombre}</span>}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${estadoColor[t.estado] || 'bg-gray-100 text-gray-600'}`}>
                       {t.estado}
                     </span>
                     <span className="text-xs text-gray-400">
-                      {new Date(t.created_at).toLocaleDateString('es', {
-                        day: '2-digit', month: 'short'
-                      })}
+                      {new Date(t.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
                     </span>
                   </div>
                 </div>
