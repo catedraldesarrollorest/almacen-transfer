@@ -10,6 +10,7 @@ import Admin from './pages/Admin'
 import SubirInventario from './pages/SubirInventario'
 import Reportes from './pages/Reportes'
 import GestionUsuarios from './pages/GestionUsuarios'
+import GestionAlmacenes from './pages/GestionAlmacenes'
 import Layout from './components/Layout'
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
             <Route path="/inventario" element={<SubirInventario />} />
             <Route path="/reportes" element={<Reportes />} />
             <Route path="/admin/usuarios" element={<GestionUsuarios />} />
+            <Route path="/admin/almacenes" element={<GestionAlmacenes />} />
           </Route>
         </Routes>
       </OfflineProvider>

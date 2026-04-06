@@ -22,7 +22,7 @@ export default function Historial() {
     try {
       let query = supabase
         .from('transferencias')
-        .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
+        .select('*, origen:origen_id(nombre), destino:destino_id(nombre), productos:transferencia_productos(*)')
         .order('created_at', { ascending: false })
         .limit(100)
 
@@ -131,6 +131,18 @@ export default function Historial() {
                     </span>
                   </div>
                 </div>
+                {t.productos && t.productos.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 mb-1">Productos:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {t.productos.map((p, idx) => (
+                        <span key={idx} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                          {p.producto}: {p.cantidad} {p.unidad}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

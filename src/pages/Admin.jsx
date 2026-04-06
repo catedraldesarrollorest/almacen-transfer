@@ -41,8 +41,8 @@ export default function Admin() {
     {
       icon: Warehouse,
       title: 'Gestionar Almacenes',
-      desc: 'Configurar PINs y responsables',
-      action: () => alert('Próximamente')
+      desc: 'Crear, editar almacenes y generar QR',
+      action: () => navigate('/admin/almacenes')
     },
   ]
 
