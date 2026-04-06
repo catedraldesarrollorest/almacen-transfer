@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, X, QrCode } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, X, QrCode, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ModalQR from '../components/ModalQR'
+import ModalPersonal from '../components/ModalPersonal'
 
 export default function GestionAlmacenes() {
   const navigate = useNavigate()
@@ -10,6 +11,7 @@ export default function GestionAlmacenes() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [personalModalOpen, setPersonalModalOpen] = useState(false)
   const [almacenSeleccionado, setAlmacenSeleccionado] = useState(null)
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -207,7 +209,7 @@ export default function GestionAlmacenes() {
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-gray-500 space-y-1">
-                      <p>Tipo: {a.tipo === 'entrada_salida' ? 'Entrada y Salida' : 'Solo Salida'}</p>
+                      <p>Tipo: {a.tipo === 'entrada_salida' ? 'Entrada y Salida' : a.tipo === 'solo_entrada' ? 'Solo Entrada' : 'Solo Salida'}</p>
                       {a.pin && <p className="font-mono">PIN: {a.pin}</p>}
                       {a.qr_secret && (
                         <p className="text-xs text-gray-400">QR: {a.qr_secret.substring(0, 8)}...</p>
@@ -215,6 +217,13 @@ export default function GestionAlmacenes() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 ml-2">
+                    <button
+                      onClick={() => { setAlmacenSeleccionado(a); setPersonalModalOpen(true); }}
+                      className="p-2 text-green-600 bg-green-50 rounded-lg"
+                      title="Personal"
+                    >
+                      <Users className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => { setAlmacenSeleccionado(a); setQrModalOpen(true); }}
                       className="p-2 text-purple-600 bg-purple-50 rounded-lg"
@@ -282,6 +291,7 @@ export default function GestionAlmacenes() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="entrada_salida">Entrada y Salida</option>
+                  <option value="solo_entrada">Solo Entrada</option>
                   <option value="solo_salida">Solo Salida</option>
                 </select>
               </div>
@@ -361,6 +371,15 @@ export default function GestionAlmacenes() {
         <ModalQR 
           almacen={almacenSeleccionado} 
           onClose={() => { setQrModalOpen(false); setAlmacenSeleccionado(null); }}
+        />
+      )}
+
+      {/* Modal Personal */}
+      {personalModalOpen && almacenSeleccionado && (
+        <ModalPersonal 
+          almacenId={almacenSeleccionado.id}
+          almacenNombre={almacenSeleccionado.nombre}
+          onClose={() => { setPersonalModalOpen(false); setAlmacenSeleccionado(null); }}
         />
       )}
     </div>
