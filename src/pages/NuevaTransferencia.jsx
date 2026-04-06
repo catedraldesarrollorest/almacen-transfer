@@ -12,11 +12,13 @@ export default function NuevaTransferencia() {
   const { isOffline } = useOffline()
 
   const [almacenes, setAlmacenes] = useState([])
+  const [personalOrigen, setPersonalOrigen] = useState([])
+  const [personalDestino, setPersonalDestino] = useState([])
   // Operador: origen fijo a su almacén. Admin: puede elegir.
   const [origenId, setOrigenId] = useState('')
   const [destinoId, setDestinoId] = useState('')
-  const [entregaNombre, setEntregaNombre] = useState('')
-  const [recibeNombre, setRecibeNombre] = useState('')
+  const [entregaId, setEntregaId] = useState('')
+  const [recibeId, setRecibeId] = useState('')
   const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '' }])
   const [sugerencias, setSugerencias] = useState([])
   const [productoActivo, setProductoActivo] = useState(null)
@@ -32,6 +34,28 @@ export default function NuevaTransferencia() {
       }
     }).catch(console.error)
   }, [isAdmin, warehouseId])
+
+  // Cargar personal cuando cambia el almacén origen
+  useEffect(() => {
+    if (origenId) {
+      supabase.from('personal_almacen').select('*').eq('almacen_id', origenId).order('nombre')
+        .then(({ data }) => setPersonalOrigen(data || []))
+    } else {
+      setPersonalOrigen([])
+    }
+    setEntregaId('')
+  }, [origenId])
+
+  // Cargar personal cuando cambia el almacén destino
+  useEffect(() => {
+    if (destinoId) {
+      supabase.from('personal_almacen').select('*').eq('almacen_id', destinoId).order('nombre')
+        .then(({ data }) => setPersonalDestino(data || []))
+    } else {
+      setPersonalDestino([])
+    }
+    setRecibeId('')
+  }, [destinoId])
 
   async function buscarProductos(idx, query) {
     const updated = [...productos]
@@ -90,8 +114,8 @@ export default function NuevaTransferencia() {
       const transferencia = {
         origen_id: parseInt(origenId),
         destino_id: parseInt(destinoId),
-        entrega_nombre: entregaNombre,
-        recibe_nombre: recibeNombre,
+        entrega_nombre: entregaId ? personalOrigen.find(p => p.id === entregaId)?.nombre : null,
+        recibe_nombre: recibeId ? personalDestino.find(p => p.id === recibeId)?.nombre : null,
         fecha_hora: new Date().toISOString(),
         estado: 'pendiente',
       }
@@ -192,23 +216,29 @@ export default function NuevaTransferencia() {
           <h2 className="font-semibold text-gray-900">Responsables</h2>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Quien entrega</label>
-            <input
-              type="text"
-              value={entregaNombre}
-              onChange={e => setEntregaNombre(e.target.value)}
+            <select
+              value={entregaId}
+              onChange={e => setEntregaId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Nombre de quien entrega"
-            />
+            >
+              <option value="">Seleccionar persona</option>
+              {personalOrigen.map(p => (
+                <option key={p.id} value={p.id}>{p.nombre}{p.cargo ? ` - ${p.cargo}` : ''}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Quien recibe</label>
-            <input
-              type="text"
-              value={recibeNombre}
-              onChange={e => setRecibeNombre(e.target.value)}
+            <select
+              value={recibeId}
+              onChange={e => setRecibeId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="Nombre de quien recibe"
-            />
+            >
+              <option value="">Seleccionar persona</option>
+              {personalDestino.map(p => (
+                <option key={p.id} value={p.id}>{p.nombre}{p.cargo ? ` - ${p.cargo}` : ''}</option>
+              ))}
+            </select>
           </div>
         </div>
 
