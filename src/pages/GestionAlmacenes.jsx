@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Pencil, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, X, QrCode } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import ModalQR from '../components/ModalQR'
 
 export default function GestionAlmacenes() {
   const navigate = useNavigate()
   const [almacenes, setAlmacenes] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [qrModalOpen, setQrModalOpen] = useState(false)
+  const [almacenSeleccionado, setAlmacenSeleccionado] = useState(null)
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -213,13 +216,11 @@ export default function GestionAlmacenes() {
                   </div>
                   <div className="flex items-center gap-1 ml-2">
                     <button
-                      onClick={() => toggleActivo(a)}
-                      className={`p-2 rounded-lg ${
-                        a.activo ? 'text-green-600 bg-green-50' : 'text-gray-400 bg-gray-50'
-                      }`}
-                      title={a.activo ? 'Desactivar' : 'Activar'}
+                      onClick={() => { setAlmacenSeleccionado(a); setQrModalOpen(true); }}
+                      className="p-2 text-purple-600 bg-purple-50 rounded-lg"
+                      title="Ver QR"
                     >
-                      <span className="text-lg">{a.activo ? '✓' : '○'}</span>
+                      <QrCode className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => abrirEditar(a)}
@@ -354,6 +355,13 @@ export default function GestionAlmacenes() {
             </form>
           </div>
         </div>
+      )}
+      {/* Modal QR */}
+      {qrModalOpen && (
+        <ModalQR 
+          almacen={almacenSeleccionado} 
+          onClose={() => { setQrModalOpen(false); setAlmacenSeleccionado(null); }}
+        />
       )}
     </div>
   )

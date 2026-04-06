@@ -1,91 +1,64 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, QrCode, CheckCircle, Package, XCircle, KeyRound } from 'lucide-react'
+import { ArrowLeft, Package, KeyRound, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function AutorizarTransferencia() {
   const navigate = useNavigate()
   const { user, warehouseId } = useAuth()
-  const scannerRef = useRef(null)
-  const scannerInstance = useRef(null)
-
-  const [modo, setModo] = useState('scan') // 'scan' | 'manual' | 'detalle' | 'success'
-  const [codigoManual, setCodigoManual] = useState('')
-  const [transferencia, setTransferencia] = useState(null)
+  
+  const [transferenciasPendientes, setTransferenciasPendientes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null)
   const [productos, setProductos] = useState([])
   const [pin, setPin] = useState('')
-  const [loadingBuscar, setLoadingBuscar] = useState(false)
   const [loadingAutorizar, setLoadingAutorizar] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
+  // Cargar transferencias pendientes del almacén del usuario
   useEffect(() => {
-    let scanner = null
-
-    async function initScanner() {
-      if (modo !== 'scan' || !scannerRef.current) return
-      try {
-        const { Html5QrcodeScanner } = await import('html5-qrcode')
-        scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: 250 }, false)
-        scannerInstance.current = scanner
-        scanner.render(
-          (decoded) => {
-            scanner.clear().catch(() => {})
-            scannerInstance.current = null
-            buscarTransferencia(decoded)
-          },
-          () => {}
-        )
-      } catch (e) {
-        console.error('Error al iniciar escáner:', e)
-      }
+    if (warehouseId) {
+      cargarTransferenciasPendientes()
     }
+  }, [warehouseId])
 
-    initScanner()
-
-    return () => {
-      if (scannerInstance.current) {
-        scannerInstance.current.clear().catch(() => {})
-        scannerInstance.current = null
-      }
-    }
-  }, [modo])
-
-  async function buscarTransferencia(codigo) {
-    setError('')
-    setLoadingBuscar(true)
+  async function cargarTransferenciasPendientes() {
+    setLoading(true)
     try {
-      const { data, error: err } = await supabase
+      const { data, error } = await supabase
         .from('transferencias')
-        .select('*, origen:origen_id(nombre), destino:destino_id(id, nombre, pin)')
-        .eq('codigo_qr', codigo.trim())
-        .single()
+        .select('*, origen:origen_id(nombre)')
+        .eq('destino_id', warehouseId)
+        .eq('estado', 'pendiente')
+        .order('created_at', { ascending: false })
 
-      if (err || !data) {
-        setError('Transferencia no encontrada. Verifica el código.')
-        setModo('scan')
-        return
-      }
-      if (data.estado !== 'pendiente') {
-        setError(`Esta transferencia ya está ${data.estado}.`)
-        setModo('scan')
-        return
-      }
+      if (error) throw error
+      setTransferenciasPendientes(data || [])
+    } catch (err) {
+      console.error('Error cargando transferencias:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      const { data: prods } = await supabase
+  async function seleccionarTransferencia(transferencia) {
+    setError('')
+    setPin('')
+    setTransferenciaSeleccionada(transferencia)
+    
+    try {
+      const { data, error } = await supabase
         .from('transferencia_productos')
         .select('*')
-        .eq('transferencia_id', data.id)
-
-      setTransferencia(data)
-      setProductos(prods || [])
-      setPin('')
-      setModo('detalle')
-    } catch (e) {
-      setError(e.message || 'Error al buscar la transferencia')
-      setModo('scan')
-    } finally {
-      setLoadingBuscar(false)
+        .eq('transferencia_id', transferencia.id)
+      
+      if (error) throw error
+      setProductos(data || [])
+    } catch (err) {
+      console.error('Error cargando productos:', err)
+      setProductos([])
     }
   }
 
@@ -93,10 +66,18 @@ export default function AutorizarTransferencia() {
     e.preventDefault()
     setError('')
 
+    if (!transferenciaSeleccionada) return
+
     // Verificar PIN del almacén destino
-    const pinDestino = transferencia?.destino?.pin
+    const { data: almacen } = await supabase
+      .from('warehouses')
+      .select('pin')
+      .eq('id', warehouseId)
+      .single()
+
+    const pinDestino = almacen?.pin
     if (!pinDestino) {
-      setError('Este almacén no tiene PIN configurado. Contacta al administrador.')
+      setError('Este almacén no tiene PIN configurado.')
       return
     }
     if (pin !== String(pinDestino)) {
@@ -114,42 +95,40 @@ export default function AutorizarTransferencia() {
           autorizado_por: user?.id,
           fecha_autorizacion: new Date().toISOString()
         })
-        .eq('id', transferencia.id)
+        .eq('id', transferenciaSeleccionada.id)
 
       if (err) throw err
-      setModo('success')
+      setSuccess(true)
     } catch (e) {
-      setError(e.message || 'Error al autorizar la transferencia')
+      setError(e.message || 'Error al autorizar')
     } finally {
       setLoadingAutorizar(false)
     }
   }
 
   function reiniciar() {
-    setModo('scan')
-    setTransferencia(null)
+    setTransferenciaSeleccionada(null)
     setProductos([])
     setPin('')
-    setCodigoManual('')
     setError('')
+    setSuccess(false)
+    cargarTransferenciasPendientes()
   }
 
-  // --- PANTALLA ÉXITO ---
-  if (modo === 'success') {
+  // PANTALLA ÉXITO
+  if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <CheckCircle className="w-20 h-20 text-success mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">¡Autorizado!</h1>
           <p className="text-gray-500 mt-2 mb-6">Transferencia completada exitosamente</p>
-          <div className="flex gap-3 justify-center">
-            <button onClick={reiniciar} className="border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold text-sm">
-              Otra transferencia
-            </button>
-            <button onClick={() => navigate('/')} className="bg-primary text-white px-6 py-3 rounded-xl font-semibold text-sm">
-              Ir al inicio
-            </button>
-          </div>
+          <button 
+            onClick={reiniciar}
+            className="bg-primary text-white px-6 py-3 rounded-xl font-semibold text-sm"
+          >
+            Volver a transferencias
+          </button>
         </div>
       </div>
     )
@@ -159,111 +138,107 @@ export default function AutorizarTransferencia() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white p-4 border-b border-gray-200 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button onClick={() => { reiniciar(); navigate('/') }} className="p-2 -ml-2">
+          <button onClick={() => navigate('/')} className="p-2 -ml-2">
             <ArrowLeft className="w-6 h-6 text-gray-700" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Autorizar Transferencia</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {transferenciaSeleccionada ? 'Autorizar Transferencia' : 'Transferencias Pendientes'}
+          </h1>
         </div>
       </div>
 
       <div className="p-4 space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-error text-sm rounded-lg p-3 flex items-center gap-2">
-            <XCircle className="w-4 h-4 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
             {error}
           </div>
         )}
 
-        {/* ESCANEAR / MANUAL */}
-        {(modo === 'scan' || modo === 'manual') && (
+        {/* LISTA DE TRANSFERENCIAS PENDIENTES */}
+        {!transferenciaSeleccionada && (
           <>
-            {modo === 'scan' && (
-              <div className="bg-white rounded-xl p-4 shadow-sm">
-                <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <QrCode className="w-5 h-5 text-primary" />
-                  Escanear QR de la transferencia
-                </h2>
-                <div id="qr-reader" ref={scannerRef} className="w-full rounded-lg overflow-hidden"></div>
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            )}
-
-            <div className="relative flex items-center">
-              <div className="flex-grow border-t border-gray-200"></div>
-              <span className="mx-4 text-sm text-gray-400">o</span>
-              <div className="flex-grow border-t border-gray-200"></div>
-            </div>
-
-            {modo === 'scan' ? (
-              <button
-                onClick={() => setModo('manual')}
-                className="w-full bg-white border border-gray-300 rounded-xl py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-              >
-                Ingresar código manualmente
-              </button>
+            ) : transferenciasPendientes.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>No hay transferencias pendientes</p>
+                <p className="text-sm mt-1">No hay envíos para tu almacén</p>
+              </div>
             ) : (
-              <div className="bg-white rounded-xl p-4 shadow-sm space-y-3">
-                <h2 className="font-semibold text-gray-900">Código de transferencia</h2>
-                <input
-                  type="text"
-                  value={codigoManual}
-                  onChange={e => setCodigoManual(e.target.value.toUpperCase())}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="TR-0000000000-0000"
-                  autoFocus
-                />
-                <div className="flex gap-3">
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500 mb-2">
+                  Toca una transferencia para autorizarla:
+                </p>
+                {transferenciasPendientes.map(t => (
                   <button
-                    onClick={() => { setModo('scan'); setCodigoManual('') }}
-                    className="flex-1 border border-gray-300 rounded-xl py-3 text-sm font-medium text-gray-700"
+                    key={t.id}
+                    onClick={() => seleccionarTransferencia(t)}
+                    className="w-full bg-white rounded-xl p-4 shadow-sm text-left hover:shadow-md transition"
                   >
-                    Cancelar
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">
+                          Desde: {t.origen?.nombre}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {t.entrega_nombre && `Entrega: ${t.entrega_nombre}`}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(t.created_at).toLocaleString('es', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <span className="text-amber-600 bg-amber-50 px-3 py-1 rounded-full text-xs font-medium">
+                        Pendiente
+                      </span>
+                    </div>
                   </button>
-                  <button
-                    onClick={() => buscarTransferencia(codigoManual)}
-                    disabled={!codigoManual.trim() || loadingBuscar}
-                    className="flex-1 bg-primary text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
-                  >
-                    {loadingBuscar ? 'Buscando...' : 'Buscar'}
-                  </button>
-                </div>
+                ))}
               </div>
             )}
           </>
         )}
 
-        {/* DETALLE + PIN */}
-        {modo === 'detalle' && transferencia && (
+        {/* DETALLE PARA AUTORIZAR */}
+        {transferenciaSeleccionada && (
           <div className="space-y-4">
-            {/* Detalle de la transferencia */}
+            <button
+              onClick={() => setTransferenciaSeleccionada(null)}
+              className="text-sm text-gray-500 flex items-center gap-1"
+            >
+              ← Volver a la lista
+            </button>
+
+            {/* Info de la transferencia */}
             <div className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Package className="w-5 h-5 text-primary" />
-                <h2 className="font-semibold text-gray-900">Detalle de transferencia</h2>
+                <h2 className="font-semibold text-gray-900">Detalle</h2>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between py-1 border-b border-gray-100">
                   <span className="text-gray-500">Origen</span>
-                  <span className="font-medium">{transferencia.origen?.nombre}</span>
+                  <span className="font-medium">{transferenciaSeleccionada.origen?.nombre}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-gray-100">
-                  <span className="text-gray-500">Destino</span>
-                  <span className="font-medium">{transferencia.destino?.nombre}</span>
+                  <span className="text-gray-500">Entrega</span>
+                  <span className="font-medium">{transferenciaSeleccionada.entrega_nombre || '—'}</span>
                 </div>
-                {transferencia.entrega_nombre && (
-                  <div className="flex justify-between py-1 border-b border-gray-100">
-                    <span className="text-gray-500">Entrega</span>
-                    <span className="font-medium">{transferencia.entrega_nombre}</span>
-                  </div>
-                )}
-                {transferencia.recibe_nombre && (
-                  <div className="flex justify-between py-1 border-b border-gray-100">
-                    <span className="text-gray-500">Recibe</span>
-                    <span className="font-medium">{transferencia.recibe_nombre}</span>
-                  </div>
-                )}
+                <div className="flex justify-between py-1 border-b border-gray-100">
+                  <span className="text-gray-500">Recibe</span>
+                  <span className="font-medium">{transferenciaSeleccionada.recibe_nombre || '—'}</span>
+                </div>
                 <div className="flex justify-between py-1">
                   <span className="text-gray-500">Código</span>
-                  <span className="font-mono text-xs text-gray-600">{transferencia.codigo_qr}</span>
+                  <span className="font-mono text-xs text-gray-600">{transferenciaSeleccionada.codigo_qr}</span>
                 </div>
               </div>
             </div>
@@ -283,43 +258,32 @@ export default function AutorizarTransferencia() {
               </div>
             )}
 
-            {/* PIN del almacén destino */}
+            {/* PIN */}
             <form onSubmit={handleAutorizar} className="bg-white rounded-xl p-4 shadow-sm space-y-3">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold text-gray-900">
-                  PIN del almacén <span className="text-primary">{transferencia.destino?.nombre}</span>
-                </h3>
+                <h3 className="font-semibold text-gray-900">Ingresa el PIN</h3>
               </div>
               <p className="text-sm text-gray-500">
-                Ingresa el PIN del almacén destino para confirmar la recepción.
+                Ingresa el PIN de tu almacén para confirmar la recepción
               </p>
               <input
                 type="password"
                 inputMode="numeric"
                 value={pin}
-                onChange={e => { setPin(e.target.value); setError('') }}
+                onChange={e => { setPin(e.target.value); setError(''); }}
                 className="w-full border border-gray-300 rounded-lg px-3 py-3 text-center text-xl font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="••••"
                 autoFocus
                 required
               />
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={reiniciar}
-                  className="flex-1 border border-gray-300 rounded-xl py-3 text-sm font-medium text-gray-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={!pin || loadingAutorizar}
-                  className="flex-1 bg-success text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
-                >
-                  {loadingAutorizar ? 'Autorizando...' : 'Confirmar recepción'}
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={!pin || loadingAutorizar}
+                className="w-full bg-success text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
+              >
+                {loadingAutorizar ? 'Autorizando...' : 'Confirmar Recepción'}
+              </button>
             </form>
           </div>
         )}
