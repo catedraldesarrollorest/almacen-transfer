@@ -244,12 +244,12 @@ export default function NuevaTransferencia() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     type="number"
                     value={prod.cantidad}
                     onChange={e => actualizarProducto(idx, 'cantidad', e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="flex-1 min-w-[80px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="Cantidad"
                     min="0"
                     step="0.01"
@@ -258,11 +258,11 @@ export default function NuevaTransferencia() {
                     type="text"
                     value={prod.unidad}
                     onChange={e => actualizarProducto(idx, 'unidad', e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="flex-1 min-w-[100px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="Unidad"
                   />
                   {productos.length > 1 && (
-                    <button type="button" onClick={() => eliminarProducto(idx)} className="p-2 text-error hover:bg-red-50 rounded-lg">
+                    <button type="button" onClick={() => eliminarProducto(idx)} className="p-2 text-error hover:bg-red-50 rounded-lg flex-shrink-0">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
