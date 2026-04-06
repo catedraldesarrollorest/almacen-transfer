@@ -19,7 +19,7 @@ export default function Reportes() {
   async function fetchTransferencias() {
     const { data, error: err } = await supabase
       .from('transferencias')
-      .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
+      .select('*, origen:origen_id(nombre), destino:destino_id(nombre), productos:transferencia_productos(*)')
       .gte('created_at', `${fechaInicio}T00:00:00`)
       .lte('created_at', `${fechaFin}T23:59:59`)
       .order('created_at', { ascending: false })
@@ -48,9 +48,10 @@ export default function Reportes() {
       let y = 45
       const completadas = data.filter(t => t.estado === 'completado').length
       const pendientes = data.filter(t => t.estado === 'pendiente').length
+      const totalProductos = data.reduce((sum, t) => sum + (t.productos?.length || 0), 0)
 
       doc.setFontSize(9)
-      doc.text(`Completadas: ${completadas}  |  Pendientes: ${pendientes}`, 14, y)
+      doc.text(`Completadas: ${completadas}  |  Pendientes: ${pendientes}  |  Total productos: ${totalProductos}`, 14, y)
       y += 10
 
       // Encabezado tabla
@@ -59,30 +60,39 @@ export default function Reportes() {
       doc.rect(14, y, pageW - 28, 8, 'F')
       doc.setTextColor(255, 255, 255)
       doc.text('Fecha', 16, y + 5.5)
-      doc.text('Origen', 50, y + 5.5)
-      doc.text('Destino', 100, y + 5.5)
-      doc.text('Estado', 150, y + 5.5)
+      doc.text('Origen', 42, y + 5.5)
+      doc.text('Destino', 75, y + 5.5)
+      doc.text('Producto', 108, y + 5.5)
+      doc.text('Cant', 155, y + 5.5)
+      doc.text('Estado', 172, y + 5.5)
       y += 10
 
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
 
       data.forEach((t, i) => {
-        if (y > 270) {
-          doc.addPage()
-          y = 20
-        }
-        if (i % 2 === 0) {
-          doc.setFillColor(248, 250, 252)
-          doc.rect(14, y - 1, pageW - 28, 7, 'F')
-        }
-        const fecha = new Date(t.created_at).toLocaleDateString('es')
-        doc.setFontSize(8)
-        doc.text(fecha, 16, y + 4)
-        doc.text((t.origen?.nombre || '').substring(0, 20), 50, y + 4)
-        doc.text((t.destino?.nombre || '').substring(0, 20), 100, y + 4)
-        doc.text(t.estado, 150, y + 4)
-        y += 7
+        const productos = t.productos?.length > 0 ? t.productos : [{ producto: 'Sin productos', cantidad: '', unidad: '' }]
+        
+        productos.forEach((p, pi) => {
+          if (y > 270) {
+            doc.addPage()
+            y = 20
+          }
+          if (i % 2 === 0) {
+            doc.setFillColor(248, 250, 252)
+            doc.rect(14, y - 1, pageW - 28, 7, 'F')
+          }
+          const fecha = new Date(t.created_at).toLocaleDateString('es')
+          doc.setFontSize(7)
+          doc.text(fecha, 16, y + 4)
+          doc.text((t.origen?.nombre || '').substring(0, 15), 42, y + 4)
+          doc.text((t.destino?.nombre || '').substring(0, 15), 75, y + 4)
+          doc.text((p.producto || '').substring(0, 22), 108, y + 4)
+          const cantidadText = p.cantidad ? `${p.cantidad} ${p.unidad || ''}`.substring(0, 12) : ''
+          doc.text(cantidadText, 155, y + 4)
+          if (pi === 0) doc.text(t.estado.substring(0, 10), 172, y + 4)
+          y += 7
+        })
       })
 
       doc.save(`reporte_${fechaInicio}_${fechaFin}.pdf`)
@@ -98,15 +108,25 @@ export default function Reportes() {
     setError('')
     try {
       const data = await fetchTransferencias()
-      const rows = data.map(t => ({
-        Fecha: new Date(t.created_at).toLocaleString('es'),
-        Origen: t.origen?.nombre || '',
-        Destino: t.destino?.nombre || '',
-        'Quien Entrega': t.entrega_nombre || '',
-        'Quien Recibe': t.recibe_nombre || '',
-        Estado: t.estado,
-        'Código QR': t.codigo_qr || '',
-      }))
+      // Expandir filas para incluir cada producto como fila separada
+      const rows = []
+      data.forEach(t => {
+        const productos = t.productos?.length > 0 ? t.productos : [{ producto: 'Sin productos', cantidad: '', unidad: '' }]
+        productos.forEach((p, idx) => {
+          rows.push({
+            Fecha: idx === 0 ? new Date(t.created_at).toLocaleString('es') : '',
+            Origen: idx === 0 ? (t.origen?.nombre || '') : '',
+            Destino: idx === 0 ? (t.destino?.nombre || '') : '',
+            Producto: p.producto || '',
+            Cantidad: p.cantidad || '',
+            Unidad: p.unidad || '',
+            'Quien Entrega': idx === 0 ? (t.entrega_nombre || '') : '',
+            'Quien Recibe': idx === 0 ? (t.recibe_nombre || '') : '',
+            Estado: idx === 0 ? t.estado : '',
+            'Código QR': idx === 0 ? (t.codigo_qr || '') : '',
+          })
+        })
+      })
 
       const ws = XLSX.utils.json_to_sheet(rows)
       const wb = XLSX.utils.book_new()
@@ -115,6 +135,7 @@ export default function Reportes() {
       // Ajustar ancho de columnas
       ws['!cols'] = [
         { wch: 20 }, { wch: 25 }, { wch: 25 },
+        { wch: 30 }, { wch: 10 }, { wch: 12 },
         { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 25 }
       ]
 
