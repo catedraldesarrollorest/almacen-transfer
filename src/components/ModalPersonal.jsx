@@ -10,22 +10,36 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (almacenId) cargarPersonal()
+    console.log('ModalPersonal - almacenId:', almacenId, 'tipo:', typeof almacenId)
+    const idNumerico = parseInt(almacenId, 10)
+    if (!isNaN(idNumerico) && idNumerico > 0) {
+      cargarPersonal(idNumerico)
+    } else {
+      console.error('almacenId inválido:', almacenId)
+      setLoading(false)
+    }
   }, [almacenId])
 
-  async function cargarPersonal() {
+  async function cargarPersonal(idNumerico) {
     setLoading(true)
+    console.log('Cargando personal para almacen ID:', idNumerico)
     try {
       const { data, error } = await supabase
         .from('personal_almacen')
         .select('*')
-        .eq('almacen_id', almacenId)
+        .eq('almacen_id', idNumerico)
         .order('nombre')
 
-      if (error) throw error
+      console.log('Respuesta Supabase - data:', data, 'error:', error, 'count:', data?.length)
+      
+      if (error) {
+        console.error('Error Supabase:', error)
+        throw error
+      }
       setPersonal(data || [])
     } catch (err) {
-      console.error('Error:', err)
+      console.error('Error cargando personal:', err)
+      setPersonal([])
     } finally {
       setLoading(false)
     }
@@ -40,7 +54,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
       const { error } = await supabase
         .from('personal_almacen')
         .insert([{
-          almacen_id: almacenId,
+          almacen_id: parseInt(almacenId, 10),
           nombre: newName.trim(),
           cargo: newCargo.trim() || null
         }])
