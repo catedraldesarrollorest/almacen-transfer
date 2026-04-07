@@ -62,7 +62,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
       if (error) throw error
       setNewName('')
       setNewCargo('')
-      cargarPersonal()
+      cargarPersonal(parseInt(almacenId, 10))
     } catch (err) {
       alert('Error al agregar: ' + err.message)
     } finally {
@@ -86,7 +86,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Personal</h2>
-            <p className="text-sm text-gray-500">{almacenNombre}</p>
+            <p className="text-sm text-gray-500">{almacenNombre} (ID: {almacenId})</p>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg">
             <X className="w-5 h-5" />
