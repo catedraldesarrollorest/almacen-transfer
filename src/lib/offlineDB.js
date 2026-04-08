@@ -1,11 +1,15 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'almacen-transfer-db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 export async function initDB() {
   return openDB(DB_NAME, DB_VERSION, {
     upgrade(db) {
+      // Personal
+      if (!db.objectStoreNames.contains('personal')) {
+        db.createObjectStore('personal', { keyPath: 'id' })
+      }
       // Almacenes
       if (!db.objectStoreNames.contains('warehouses')) {
         db.createObjectStore('warehouses', { keyPath: 'id' })
@@ -90,4 +94,40 @@ export async function guardarHistorialLocal(transferencia) {
 export async function getHistorialLocal() {
   const db = await initDB()
   return db.getAll('historial')
+}
+
+// ----- NUEVOS MÉTODOS DE CACHÉ PARA CATÁLOGOS -----
+
+// Cachear Almacenes
+export async function cachearWarehouses(warehouses) {
+  const db = await initDB()
+  const tx = db.transaction('warehouses', 'readwrite')
+  for (const w of warehouses) {
+    tx.store.put(w)
+  }
+  await tx.done
+}
+
+// Obtener Almacenes Cacheados
+export async function getWarehousesCache() {
+  const db = await initDB()
+  return db.getAll('warehouses')
+}
+
+// Cachear Personal
+export async function cachearPersonal(personalData) {
+  const db = await initDB()
+  const tx = db.transaction('personal', 'readwrite')
+  for (const p of personalData) {
+    tx.store.put(p)
+  }
+  await tx.done
+}
+
+// Obtener Personal Cacheado por Almacén
+export async function getPersonalCache(almacenId) {
+  const db = await initDB()
+  const allPersonal = await db.getAll('personal')
+  if (!almacenId) return allPersonal
+  return allPersonal.filter(p => String(p.almacen_id) === String(almacenId))
 }

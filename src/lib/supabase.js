@@ -17,6 +17,16 @@ export async function getWarehouses() {
   return data
 }
 
+export async function getPersonal() {
+  const { data, error } = await supabase
+    .from('personal_almacen')
+    .select('*')
+    .order('nombre')
+
+  if (error) throw error
+  return data
+}
+
 // Transferencias
 export async function createTransferencia(transferencia) {
   const { data, error } = await supabase
@@ -24,6 +34,16 @@ export async function createTransferencia(transferencia) {
     .insert([transferencia])
     .select()
     .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function createTransferenciaConProductos(transferencia, productos) {
+  const { data, error } = await supabase.rpc('create_transfer_with_products', {
+    p_transferencia: transferencia,
+    p_productos: productos
+  })
 
   if (error) throw error
   return data

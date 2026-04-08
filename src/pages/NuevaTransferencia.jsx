@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Trash2, Search } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos, createTransferencia } from '../lib/supabase'
-import { guardarTransferenciaPendiente } from '../lib/offlineDB'
+import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, buscarProductosCache } from '../lib/offlineDB'
 
 export default function NuevaTransferencia() {
   const navigate = useNavigate()
@@ -26,36 +26,65 @@ export default function NuevaTransferencia() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getWarehouses().then(data => {
-      setAlmacenes(data)
-      // Si es operador, fijar el origen a su almacén
-      if (!isAdmin && warehouseId) {
-        setOrigenId(String(warehouseId))
+    async function loadWarehouses() {
+      try {
+        const data = isOffline ? await getWarehousesCache() : await getWarehouses()
+        setAlmacenes(data || [])
+        if (!isAdmin && warehouseId) {
+          setOrigenId(String(warehouseId))
+        }
+      } catch (err) {
+        console.error(err)
+        const cache = await getWarehousesCache()
+        setAlmacenes(cache || [])
       }
-    }).catch(console.error)
-  }, [isAdmin, warehouseId])
+    }
+    loadWarehouses()
+  }, [isAdmin, warehouseId, isOffline])
 
   // Cargar personal cuando cambia el almacén origen
   useEffect(() => {
-    if (origenId) {
-      supabase.from('personal_almacen').select('*').eq('almacen_id', origenId).order('nombre')
-        .then(({ data }) => setPersonalOrigen(data || []))
-    } else {
-      setPersonalOrigen([])
+    async function loadPersonalOrigen() {
+      if (!origenId) {
+        setPersonalOrigen([])
+        setEntregaId('')
+        return
+      }
+      try {
+        const data = isOffline 
+          ? await getPersonalCache(origenId) 
+          : (await supabase.from('personal_almacen').select('*').eq('almacen_id', origenId).order('nombre')).data
+        setPersonalOrigen(data || [])
+      } catch (err) {
+        const cache = await getPersonalCache(origenId)
+        setPersonalOrigen(cache || [])
+      }
+      setEntregaId('')
     }
-    setEntregaId('')
-  }, [origenId])
+    loadPersonalOrigen()
+  }, [origenId, isOffline])
 
   // Cargar personal cuando cambia el almacén destino
   useEffect(() => {
-    if (destinoId) {
-      supabase.from('personal_almacen').select('*').eq('almacen_id', destinoId).order('nombre')
-        .then(({ data }) => setPersonalDestino(data || []))
-    } else {
-      setPersonalDestino([])
+    async function loadPersonalDestino() {
+      if (!destinoId) {
+        setPersonalDestino([])
+        setRecibeId('')
+        return
+      }
+      try {
+        const data = isOffline 
+          ? await getPersonalCache(destinoId) 
+          : (await supabase.from('personal_almacen').select('*').eq('almacen_id', destinoId).order('nombre')).data
+        setPersonalDestino(data || [])
+      } catch (err) {
+        const cache = await getPersonalCache(destinoId)
+        setPersonalDestino(cache || [])
+      }
+      setRecibeId('')
     }
-    setRecibeId('')
-  }, [destinoId])
+    loadPersonalDestino()
+  }, [destinoId, isOffline])
 
   async function buscarProductos(idx, query) {
     const updated = [...productos]
@@ -63,7 +92,12 @@ export default function NuevaTransferencia() {
     setProductos(updated)
     setProductoActivo(idx)
     if (query.length < 2) { setSugerencias([]); return }
-    const results = await getProductos(query)
+    let results
+    try {
+      results = isOffline ? await buscarProductosCache(query) : await getProductos(query)
+    } catch {
+      results = await buscarProductosCache(query)
+    }
     setSugerencias(results || [])
   }
 
