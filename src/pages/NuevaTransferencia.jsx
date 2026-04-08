@@ -148,8 +148,8 @@ export default function NuevaTransferencia() {
       const transferencia = {
         origen_id: parseInt(origenId),
         destino_id: parseInt(destinoId),
-        entrega_nombre: entregaId ? personalOrigen.find(p => p.id === entregaId)?.nombre : null,
-        recibe_nombre: recibeId ? personalDestino.find(p => p.id === recibeId)?.nombre : null,
+        entrega_nombre: entregaId ? personalOrigen.find(p => String(p.id) === String(entregaId))?.nombre : null,
+        recibe_nombre: recibeId ? personalDestino.find(p => String(p.id) === String(recibeId))?.nombre : null,
         fecha_hora: new Date().toISOString(),
         estado: 'pendiente',
       }
