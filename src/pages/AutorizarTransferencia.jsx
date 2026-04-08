@@ -104,6 +104,11 @@ export default function AutorizarTransferencia() {
         .eq('id', transferenciaSeleccionada.id)
 
       if (err) throw err
+
+      // Quitar inmediatamente de la lista local (no esperar al re-fetch)
+      setTransferenciasPendientes(prev =>
+        prev.filter(t => t.id !== transferenciaSeleccionada.id)
+      )
       setSuccess(true)
     } catch (e) {
       setError(e.message || 'Error al autorizar')
@@ -121,8 +126,11 @@ export default function AutorizarTransferencia() {
       const { error: err } = await supabase.from('transferencias').delete().eq('id', transferenciaSeleccionada.id)
       
       if (err) throw err
-      
-      alert('Transferencia eliminada correctamente.')
+
+      // Quitar inmediatamente de la lista local
+      setTransferenciasPendientes(prev =>
+        prev.filter(t => t.id !== transferenciaSeleccionada.id)
+      )
       reiniciar()
     } catch (e) {
       setError(e.message || 'Error al eliminar')
@@ -137,6 +145,7 @@ export default function AutorizarTransferencia() {
     setPin('')
     setError('')
     setSuccess(false)
+    // Re-fetch en background para mantener consistencia con Supabase
     cargarTransferenciasPendientes()
   }
 
