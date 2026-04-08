@@ -185,7 +185,7 @@ export default function NuevaTransferencia() {
   const origenNombre = almacenes.find(a => String(a.id) === origenId)?.nombre
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 max-w-3xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
       <div className="bg-white p-4 border-b border-gray-200 sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/')} className="p-2 -ml-2">

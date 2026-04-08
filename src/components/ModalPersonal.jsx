@@ -10,24 +10,20 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    console.log('ModalPersonal - almacenId:', almacenId, 'tipo:', typeof almacenId)
-    const idNumerico = parseInt(almacenId, 10)
-    if (!isNaN(idNumerico) && idNumerico > 0) {
-      cargarPersonal(idNumerico)
+    if (almacenId) {
+      cargarPersonal(almacenId)
     } else {
-      console.error('almacenId inválido:', almacenId)
       setLoading(false)
     }
   }, [almacenId])
 
-  async function cargarPersonal(idNumerico) {
+  async function cargarPersonal(id) {
     setLoading(true)
-    console.log('Cargando personal para almacen ID:', idNumerico)
     try {
       const { data, error } = await supabase
         .from('personal_almacen')
         .select('*')
-        .eq('almacen_id', idNumerico)
+        .eq('almacen_id', id)
         .order('nombre')
 
       console.log('Respuesta Supabase - data:', data, 'error:', error, 'count:', data?.length)
@@ -62,7 +58,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
       if (error) throw error
       setNewName('')
       setNewCargo('')
-      cargarPersonal(parseInt(almacenId, 10))
+      cargarPersonal(almacenId)
     } catch (err) {
       alert('Error al agregar: ' + err.message)
     } finally {
@@ -74,7 +70,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
     if (!confirm('¿Eliminar esta persona?')) return
     try {
       await supabase.from('personal_almacen').delete().eq('id', id)
-      cargarPersonal()
+      cargarPersonal(almacenId)
     } catch (err) {
       alert('Error al eliminar')
     }

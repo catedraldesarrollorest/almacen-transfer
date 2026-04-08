@@ -27,11 +27,13 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 max-w-lg mx-auto">
-      <main className="w-full">
-        <Outlet />
-      </main>
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
       <BottomNav />
+      <main className="flex-1 w-full pb-20 md:pb-0 md:ml-64 min-h-screen transition-all">
+        <div className="max-w-7xl mx-auto w-full h-full md:p-6">
+          <Outlet />
+        </div>
+      </main>
     </div>
   )
 }
