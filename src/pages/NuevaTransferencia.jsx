@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Search } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
-import { supabase, getWarehouses, getProductos, createTransferencia } from '../lib/supabase'
+import { supabase, getWarehouses, getProductos, createTransferenciaConProductos } from '../lib/supabase'
 import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, buscarProductosCache } from '../lib/offlineDB'
 
 export default function NuevaTransferencia() {
@@ -154,22 +154,20 @@ export default function NuevaTransferencia() {
         estado: 'pendiente',
       }
 
+      // Si no hay conexión, guardar localmente
       if (isOffline) {
         await guardarTransferenciaPendiente({ ...transferencia, productos: productosValidos })
         navigate('/')
         return
       }
 
-      const created = await createTransferencia(transferencia)
-
-      await supabase.from('transferencia_productos').insert(
-        productosValidos.map(p => ({
-          transferencia_id: created.id,
-          producto: p.nombre,
-          cantidad: parseFloat(p.cantidad),
-          unidad: p.unidad
-        }))
-      )
+      // Online: usar RPC atómico (tranferencia + productos en una sola operación)
+      const productosProcesados = productosValidos.map(p => ({
+        nombre: p.nombre,
+        cantidad: parseFloat(p.cantidad),
+        unidad: p.unidad
+      }))
+      await createTransferenciaConProductos(transferencia, productosProcesados)
 
       navigate('/')
     } catch (err) {

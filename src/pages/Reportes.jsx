@@ -61,10 +61,12 @@ export default function Reportes() {
       doc.setTextColor(255, 255, 255)
       doc.text('Fecha', 16, y + 5.5)
       doc.text('Origen', 42, y + 5.5)
-      doc.text('Destino', 75, y + 5.5)
-      doc.text('Producto', 108, y + 5.5)
-      doc.text('Cant', 155, y + 5.5)
-      doc.text('Estado', 172, y + 5.5)
+      doc.text('Destino', 70, y + 5.5)
+      doc.text('Producto', 98, y + 5.5)
+      doc.text('Cant', 138, y + 5.5)
+      doc.text('Entrega', 152, y + 5.5)
+      doc.text('Recibe', 174, y + 5.5)
+      doc.text('Estado', 195, y + 5.5)
       y += 10
 
       doc.setFont('helvetica', 'normal')
@@ -83,14 +85,18 @@ export default function Reportes() {
             doc.rect(14, y - 1, pageW - 28, 7, 'F')
           }
           const fecha = new Date(t.created_at).toLocaleDateString('es')
-          doc.setFontSize(7)
+          doc.setFontSize(6.5)
           doc.text(fecha, 16, y + 4)
-          doc.text((t.origen?.nombre || '').substring(0, 15), 42, y + 4)
-          doc.text((t.destino?.nombre || '').substring(0, 15), 75, y + 4)
-          doc.text((p.producto || '').substring(0, 22), 108, y + 4)
-          const cantidadText = p.cantidad ? `${p.cantidad} ${p.unidad || ''}`.substring(0, 12) : ''
-          doc.text(cantidadText, 155, y + 4)
-          if (pi === 0) doc.text(t.estado.substring(0, 10), 172, y + 4)
+          doc.text((t.origen?.nombre || '').substring(0, 13), 42, y + 4)
+          doc.text((t.destino?.nombre || '').substring(0, 13), 70, y + 4)
+          doc.text((p.producto || '').substring(0, 18), 98, y + 4)
+          const cantidadText = p.cantidad ? `${p.cantidad} ${p.unidad || ''}`.substring(0, 10) : ''
+          doc.text(cantidadText, 138, y + 4)
+          if (pi === 0) {
+            doc.text((t.entrega_nombre || '—').substring(0, 10), 152, y + 4)
+            doc.text((t.recibe_nombre || '—').substring(0, 10), 174, y + 4)
+            doc.text(t.estado.substring(0, 10), 195, y + 4)
+          }
           y += 7
         })
       })
@@ -114,15 +120,15 @@ export default function Reportes() {
         const productos = t.productos?.length > 0 ? t.productos : [{ producto: 'Sin productos', cantidad: '', unidad: '' }]
         productos.forEach((p, idx) => {
           rows.push({
-            Fecha: idx === 0 ? new Date(t.created_at).toLocaleString('es') : '',
-            Origen: idx === 0 ? (t.origen?.nombre || '') : '',
-            Destino: idx === 0 ? (t.destino?.nombre || '') : '',
-            Producto: p.producto || '',
-            Cantidad: p.cantidad || '',
-            Unidad: p.unidad || '',
+            'Fecha': idx === 0 ? new Date(t.created_at).toLocaleString('es') : '',
+            'Origen': idx === 0 ? (t.origen?.nombre || '') : '',
+            'Destino': idx === 0 ? (t.destino?.nombre || '') : '',
+            'Producto': p.producto || '',
+            'Cantidad': p.cantidad || '',
+            'Unidad': p.unidad || '',
             'Quien Entrega': idx === 0 ? (t.entrega_nombre || '') : '',
             'Quien Recibe': idx === 0 ? (t.recibe_nombre || '') : '',
-            Estado: idx === 0 ? t.estado : '',
+            'Estado': idx === 0 ? t.estado : '',
             'Código QR': idx === 0 ? (t.codigo_qr || '') : '',
           })
         })
@@ -139,7 +145,17 @@ export default function Reportes() {
         { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 25 }
       ]
 
-      XLSX.writeFile(wb, `reporte_${fechaInicio}_${fechaFin}.xlsx`)
+      // Descarga compatible con navegador Web (usa Blob en lugar de writeFile)
+      const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([wbOut], { type: 'application/octet-stream' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `reporte_${fechaInicio}_${fechaFin}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
     } catch (e) {
       setError(e.message || 'Error al generar Excel')
     } finally {
@@ -148,7 +164,7 @@ export default function Reportes() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 max-w-4xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
       <div className="bg-white p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/admin')} className="p-2 -ml-2">
