@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 
 export default function AutorizarTransferencia() {
   const navigate = useNavigate()
-  const { user, warehouseId } = useAuth()
+  const { user, warehouseId, isAdmin } = useAuth()
   
   const [transferenciasPendientes, setTransferenciasPendientes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,12 +27,17 @@ export default function AutorizarTransferencia() {
   async function cargarTransferenciasPendientes() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('transferencias')
-        .select('*, origen:origen_id(nombre)')
-        .eq('destino_id', warehouseId)
+        .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
         .eq('estado', 'pendiente')
         .order('created_at', { ascending: false })
+
+      if (!isAdmin) {
+        query = query.eq('destino_id', warehouseId)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setTransferenciasPendientes(data || [])
@@ -101,6 +106,25 @@ export default function AutorizarTransferencia() {
       setSuccess(true)
     } catch (e) {
       setError(e.message || 'Error al autorizar')
+    } finally {
+      setLoadingAutorizar(false)
+    }
+  }
+
+  async function handleEliminar() {
+    if (!confirm('¿Estás seguro de cancelar esta transferencia? Esta acción no se puede deshacer.')) return
+    
+    setLoadingAutorizar(true)
+    try {
+      await supabase.from('transferencia_productos').delete().eq('transferencia_id', transferenciaSeleccionada.id)
+      const { error: err } = await supabase.from('transferencias').delete().eq('id', transferenciaSeleccionada.id)
+      
+      if (err) throw err
+      
+      alert('Transferencia eliminada correctamente.')
+      reiniciar()
+    } catch (e) {
+      setError(e.message || 'Error al eliminar')
     } finally {
       setLoadingAutorizar(false)
     }
@@ -182,7 +206,7 @@ export default function AutorizarTransferencia() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">
-                          Desde: {t.origen?.nombre}
+                          {isAdmin ? `${t.origen?.nombre} → ${t.destino?.nombre}` : `Desde: ${t.origen?.nombre}`}
                         </p>
                         <p className="text-sm text-gray-500 mt-1">
                           {t.entrega_nombre && `Entrega: ${t.entrega_nombre}`}
@@ -284,6 +308,16 @@ export default function AutorizarTransferencia() {
               >
                 {loadingAutorizar ? 'Autorizando...' : 'Confirmar Recepción'}
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleEliminar}
+                  disabled={loadingAutorizar}
+                  className="w-full bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-xl py-3 text-sm font-semibold disabled:opacity-60 mt-2"
+                >
+                  {loadingAutorizar ? 'Procesando...' : 'Eliminar / Rechazar Transferencia'}
+                </button>
+              )}
             </form>
           </div>
         )}
