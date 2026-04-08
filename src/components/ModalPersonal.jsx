@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, User } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useOffline } from '../contexts/OfflineContext'
 
 export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
+  const { syncCatalogs } = useOffline()
   const [personal, setPersonal] = useState([])
   const [loading, setLoading] = useState(true)
   const [newName, setNewName] = useState('')
@@ -59,6 +61,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
       setNewName('')
       setNewCargo('')
       cargarPersonal(almacenId)
+      syncCatalogs()  // Actualizar caché inmediatamente
     } catch (err) {
       alert('Error al agregar: ' + err.message)
     } finally {
@@ -71,6 +74,7 @@ export default function ModalPersonal({ almacenId, almacenNombre, onClose }) {
     try {
       await supabase.from('personal_almacen').delete().eq('id', id)
       cargarPersonal(almacenId)
+      syncCatalogs()  // Actualizar caché inmediatamente
     } catch (err) {
       alert('Error al eliminar')
     }

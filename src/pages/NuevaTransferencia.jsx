@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Search } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos, createTransferenciaConProductos } from '../lib/supabase'
@@ -9,7 +9,8 @@ import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, bu
 export default function NuevaTransferencia() {
   const navigate = useNavigate()
   const { user, isAdmin, warehouseId } = useAuth()
-  const { isOffline } = useOffline()
+  const { isOffline, syncCatalogs } = useOffline()
+  const [refreshing, setRefreshing] = useState(false)
 
   const [almacenes, setAlmacenes] = useState([])
   const [personalOrigen, setPersonalOrigen] = useState([])
@@ -41,6 +42,11 @@ export default function NuevaTransferencia() {
     }
     loadWarehouses()
   }, [isAdmin, warehouseId, isOffline])
+
+  // Sincronizar catálogos al montar la pantalla
+  useEffect(() => {
+    if (!isOffline) syncCatalogs()
+  }, [])
 
   // Cargar personal cuando cambia el almacén origen
   useEffect(() => {
@@ -185,11 +191,31 @@ export default function NuevaTransferencia() {
   return (
     <div className="min-h-screen bg-gray-50 max-w-3xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
       <div className="bg-white p-4 border-b border-gray-200 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="p-2 -ml-2">
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/')} className="p-2 -ml-2">
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">Nueva Transferencia</h1>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              setRefreshing(true)
+              await syncCatalogs()
+              // Recargar almacenes y personal activo
+              try {
+                const data = await getWarehouses()
+                setAlmacenes(data || [])
+                if (!isAdmin && warehouseId) setOrigenId(String(warehouseId))
+              } catch {}
+              setRefreshing(false)
+            }}
+            className="p-2 text-gray-500 hover:text-primary transition"
+            title="Actualizar datos"
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin text-primary' : ''}`} />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">Nueva Transferencia</h1>
         </div>
       </div>
 

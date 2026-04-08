@@ -79,7 +79,7 @@ export function OfflineProvider({ children }) {
   }
 
   return (
-    <OfflineContext.Provider value={{ isOffline, syncing, syncPendientes }}>
+    <OfflineContext.Provider value={{ isOffline, syncing, syncPendientes, syncCatalogs }}>
       {isOffline && (
         <div className="fixed top-0 left-0 right-0 bg-amber-500 text-white text-xs text-center py-1 z-50">
           Sin conexión — los cambios se guardarán localmente
