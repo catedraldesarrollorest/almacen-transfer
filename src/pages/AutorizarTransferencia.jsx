@@ -17,12 +17,13 @@ export default function AutorizarTransferencia() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  // Cargar transferencias pendientes del almacén del usuario
+  // Cargar transferencias pendientes
+  // Admin: carga todas. Operador: espera a tener su warehouseId.
   useEffect(() => {
-    if (warehouseId) {
+    if (isAdmin || warehouseId) {
       cargarTransferenciasPendientes()
     }
-  }, [warehouseId])
+  }, [warehouseId, isAdmin])
 
   async function cargarTransferenciasPendientes() {
     setLoading(true)
