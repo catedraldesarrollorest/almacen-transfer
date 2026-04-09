@@ -1,20 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet, BarChart2, Trash2, AlertTriangle, X } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet, BarChart2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Admin() {
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
-  const [showLimpieza, setShowLimpieza] = useState(false)
-  const [fechaInicio, setFechaInicio] = useState('')
-  const [fechaFin, setFechaFin] = useState('')
-  const [pinConfirmacion, setPinConfirmacion] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '940209'
 
   if (!isAdmin) {
     return (
@@ -53,69 +44,7 @@ export default function Admin() {
       desc: 'Crear, editar almacenes y generar QR',
       action: () => navigate('/admin/almacenes')
     },
-    {
-      icon: Trash2,
-      title: 'Limpieza de Historial',
-      desc: 'Borrar registros de transferencias antiguas',
-      action: () => setShowLimpieza(true)
-    },
   ]
-
-  async function handleBorrarHistorial() {
-    if (!fechaInicio || !fechaFin) {
-      setError('Selecciona el rango de fechas')
-      return
-    }
-    if (pinConfirmacion !== ADMIN_PIN) {
-      setError('PIN de administrador incorrecto')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
-    try {
-      // 1. Obtener IDs de transferencias en el rango
-      const { data: transArr, error: fetchErr } = await supabase
-        .from('transferencias')
-        .select('id')
-        .gte('created_at', `${fechaInicio}T00:00:00`)
-        .lte('created_at', `${fechaFin}T23:59:59`)
-
-      if (fetchErr) throw fetchErr
-      if (!transArr || transArr.length === 0) {
-        alert('No hay registros en ese rango de fechas')
-        setLoading(false)
-        return
-      }
-
-      const ids = transArr.map(t => t.id)
-
-      // 2. Borrar productos asociados
-      const { error: delProdErr } = await supabase
-        .from('transferencia_productos')
-        .delete()
-        .in('transferencia_id', ids)
-
-      if (delProdErr) throw delProdErr
-
-      // 3. Borrar transferencias
-      const { error: delTransErr } = await supabase
-        .from('transferencias')
-        .delete()
-        .in('id', ids)
-
-      if (delTransErr) throw delTransErr
-
-      alert(`Se han eliminado ${ids.length} transferencias correctamente.`)
-      setShowLimpieza(false)
-      setPinConfirmacion('')
-    } catch (err) {
-      setError(err.message || 'Error al borrar historial')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -145,86 +74,6 @@ export default function Admin() {
           </button>
         ))}
       </div>
-
-      {/* Modal de Limpieza */}
-      {showLimpieza && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                <Trash2 className="w-5 h-5 text-error" />
-                Limpieza de Historial
-              </h2>
-              <button onClick={() => { setShowLimpieza(false); setError(''); }} className="p-1">
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5 text-center space-y-3">
-                <AlertTriangle className="w-16 h-16 text-red-600 mx-auto animate-pulse" />
-                <h3 className="text-xl font-black text-red-600 uppercase tracking-tighter">
-                  ¡ADVERTENCIA CRÍTICA!
-                </h3>
-                <p className="text-sm text-red-700 font-medium leading-relaxed">
-                  Esta acción eliminará **PERMANENTEMENTE** todas las transferencias y sus productos en el rango de fechas seleccionado. 
-                  <br /><br />
-                  **NO SE PUEDE DESHACER.**
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-100 border border-red-200 text-red-700 text-sm p-3 rounded-lg text-center">
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desde</label>
-                    <input
-                      type="date"
-                      value={fechaInicio}
-                      onChange={(e) => setFechaInicio(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hasta</label>
-                    <input
-                      type="date"
-                      value={fechaFin}
-                      onChange={(e) => setFechaFin(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500/20"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Confirmar con PIN Admin</label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    placeholder="Escribe el PIN de administrador"
-                    value={pinConfirmacion}
-                    onChange={(e) => setPinConfirmacion(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-lg tracking-widest focus:ring-2 focus:ring-red-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={handleBorrarHistorial}
-                disabled={loading || !fechaInicio || !fechaFin || !pinConfirmacion}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-200 transition-all disabled:opacity-50 active:scale-95 text-lg"
-              >
-                {loading ? 'Borrando...' : 'BORRAR AHORA'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
