@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet, BarChart2, Trash2, AlertTriangle, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
