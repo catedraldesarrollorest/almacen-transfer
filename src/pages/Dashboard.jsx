@@ -5,18 +5,17 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function Dashboard() {
-  const { user, isAdmin, warehouseId, signOut } = useAuth()
+  const { user, isAdmin, warehouseId, signOut, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const [stats, setStats] = useState({ pendientes: 0, completadas: 0 })
   const [recientes, setRecientes] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Esperar a que el warehouseId esté cargado antes de hacer la query
-    if (isAdmin !== undefined) {
+    if (!authLoading) {
       loadData()
     }
-  }, [isAdmin, warehouseId])
+  }, [authLoading, isAdmin, warehouseId])
 
   async function loadData() {
     try {
@@ -60,7 +59,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-blue-200 text-sm">Bienvenido</p>
-            <h1 className="text-xl font-bold">{user?.email?.split('@')[0]}</h1>
+            <h1 className="text-xl font-bold">{user?.warehouseName}</h1>
             <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full mt-1 inline-block">
               {isAdmin ? 'Administrador' : 'Operador'}
             </span>

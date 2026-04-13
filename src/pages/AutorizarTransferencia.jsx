@@ -111,7 +111,6 @@ export default function AutorizarTransferencia() {
         .from('transferencias')
         .update({
           estado: 'completado',
-          autorizado_por: user?.id,
           fecha_autorizacion: new Date().toISOString()
         })
         .eq('id', transferencia.id)
