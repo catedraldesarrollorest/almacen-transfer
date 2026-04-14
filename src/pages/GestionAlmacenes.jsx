@@ -208,7 +208,7 @@ export default function GestionAlmacenes() {
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-gray-500 space-y-1">
-                      <p>Tipo: {a.tipo === 'entrada_salida' ? 'Entrada y Salida' : a.tipo === 'solo_entrada' ? 'Solo Entrada' : 'Solo Salida'}</p>
+                      <p>Tipo: {a.tipo === 'entrada_salida' ? 'Entrada y Salida' : a.tipo === 'solo_salida' ? 'Solo Salida' : a.tipo === 'solo_entrada' ? 'Solo Entrada' : a.tipo}</p>
                       {a.pin && <p className="font-mono">PIN: {a.pin}</p>}
                       {a.qr_secret && (
                         <p className="text-xs text-gray-400">QR: {a.qr_secret.substring(0, 8)}...</p>
@@ -290,7 +290,6 @@ export default function GestionAlmacenes() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="entrada_salida">Entrada y Salida</option>
-                  <option value="solo_entrada">Solo Entrada</option>
                   <option value="solo_salida">Solo Salida</option>
                 </select>
               </div>
