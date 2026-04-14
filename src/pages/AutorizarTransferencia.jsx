@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Package, KeyRound, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -8,6 +8,7 @@ export default function AutorizarTransferencia() {
   const navigate = useNavigate()
   const { user, warehouseId, isAdmin } = useAuth()
   
+  const successTimerRef = useRef(null)
   const [transferenciasPendientes, setTransferenciasPendientes] = useState([])
   const [loading, setLoading] = useState(true)
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null)
@@ -74,11 +75,11 @@ export default function AutorizarTransferencia() {
 
     if (!transferenciaSeleccionada) return
 
-    // Verificar PIN del almacén destino
+    // Verificar PIN del almacén DESTINO (no del usuario logueado)
     const { data: almacen } = await supabase
       .from('warehouses')
       .select('pin')
-      .eq('id', warehouseId)
+      .eq('id', transferenciaSeleccionada.destino_id)
       .single()
 
     const pinDestino = almacen?.pin
@@ -96,18 +97,11 @@ export default function AutorizarTransferencia() {
     try {
       const { error: err } = await supabase
         .from('transferencias')
-        .update({
-          estado: 'completado',
-          fecha_autorizacion: new Date().toISOString()
-        })
+        .update({ estado: 'completado' })
         .eq('id', transferenciaSeleccionada.id)
 
       if (err) throw err
 
-      // Quitar inmediatamente de la lista local (no esperar al re-fetch)
-      setTransferenciasPendientes(prev =>
-        prev.filter(t => t.id !== transferenciaSeleccionada.id)
-      )
       setSuccess(true)
     } catch (e) {
       setError(e.message || 'Error al autorizar')
@@ -144,9 +138,16 @@ export default function AutorizarTransferencia() {
     setPin('')
     setError('')
     setSuccess(false)
-    // Re-fetch en background para mantener consistencia con Supabase
     cargarTransferenciasPendientes()
   }
+
+  // Auto-navegar al inicio 2 segundos después del éxito
+  useEffect(() => {
+    if (success) {
+      successTimerRef.current = setTimeout(() => navigate('/'), 2000)
+    }
+    return () => clearTimeout(successTimerRef.current)
+  }, [success])
 
   // PANTALLA ÉXITO
   if (success) {
@@ -156,11 +157,11 @@ export default function AutorizarTransferencia() {
           <CheckCircle className="w-20 h-20 text-success mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">¡Autorizado!</h1>
           <p className="text-gray-500 mt-2 mb-6">Transferencia completada exitosamente</p>
-          <button 
-            onClick={reiniciar}
+          <button
+            onClick={() => navigate('/')}
             className="bg-primary text-white px-6 py-3 rounded-xl font-semibold text-sm"
           >
-            Volver a transferencias
+            Ir al inicio
           </button>
         </div>
       </div>
