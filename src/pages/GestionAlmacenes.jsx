@@ -291,6 +291,7 @@ export default function GestionAlmacenes() {
                 >
                   <option value="entrada_salida">Entrada y Salida</option>
                   <option value="solo_salida">Solo Salida</option>
+                  <option value="solo_entrada">Solo Entrada</option>
                 </select>
               </div>
 
