@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function Historial() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAdmin, warehouseId, loading: authLoading } = useAuth()
   const [transferencias, setTransferencias] = useState([])
   const [loading, setLoading] = useState(true)
@@ -14,13 +15,9 @@ export default function Historial() {
   const [expandedId, setExpandedId] = useState(null)
   const [productosPorId, setProductosPorId] = useState({})
 
-  useEffect(() => {
-    if (!authLoading) {
-      loadHistorial()
-    }
-  }, [authLoading, isAdmin, warehouseId])
-
-  async function loadHistorial() {
+  const loadHistorial = useCallback(async () => {
+    setLoading(true)
+    setProductosPorId({}) // clear cached products so expanded rows re-fetch fresh data
     try {
       let query = supabase
         .from('transferencias')
@@ -39,7 +36,11 @@ export default function Historial() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAdmin, warehouseId])
+
+  useEffect(() => {
+    if (!authLoading) loadHistorial()
+  }, [authLoading, loadHistorial, location.key])
 
   async function toggleDetalle(id) {
     if (expandedId === id) {
@@ -74,13 +75,23 @@ export default function Historial() {
   return (
     <div className="min-h-screen bg-gray-50 max-w-4xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
       <div className="bg-white p-4 border-b border-gray-200 sticky top-0 z-10">
-        <div className="flex items-center gap-3 mb-3">
-          <button onClick={() => navigate('/')} className="p-2 -ml-2">
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/')} className="p-2 -ml-2">
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">
+              {isAdmin ? 'Historial completo' : 'Mi historial'}
+            </h1>
+          </div>
+          <button
+            onClick={loadHistorial}
+            disabled={loading}
+            className="p-2 text-gray-500 hover:text-primary transition"
+            title="Actualizar"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-primary' : ''}`} />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">
-            {isAdmin ? 'Historial completo' : 'Mi historial'}
-          </h1>
         </div>
 
         <div className="relative mb-3">
@@ -176,7 +187,12 @@ export default function Historial() {
                           {productosPorId[t.id].map((p, i) => (
                             <div key={i} className="flex justify-between text-sm py-1 border-b border-gray-50 last:border-0">
                               <span className="text-gray-700">{p.producto}</span>
-                              <span className="font-medium text-gray-900">{p.cantidad} {p.unidad}</span>
+                              <div className="text-right">
+                                <span className="font-medium text-gray-900">{p.cantidad} {p.unidad}</span>
+                                {p.existencia != null && (
+                                  <span className="block text-xs text-amber-600">Exist: {p.existencia}</span>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
