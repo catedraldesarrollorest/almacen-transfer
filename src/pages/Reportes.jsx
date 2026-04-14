@@ -59,22 +59,24 @@ export default function Reportes() {
       doc.setFillColor(30, 58, 95)
       doc.rect(14, y, pageW - 28, 8, 'F')
       doc.setTextColor(255, 255, 255)
-      doc.text('Fecha', 16, y + 5.5)
-      doc.text('Origen', 42, y + 5.5)
-      doc.text('Destino', 70, y + 5.5)
-      doc.text('Producto', 98, y + 5.5)
-      doc.text('Cant', 138, y + 5.5)
-      doc.text('Entrega', 152, y + 5.5)
-      doc.text('Recibe', 174, y + 5.5)
-      doc.text('Estado', 195, y + 5.5)
+      doc.setFontSize(6.5)
+      doc.text('Fecha',    16,  y + 5.5)
+      doc.text('Origen',   40,  y + 5.5)
+      doc.text('Destino',  66,  y + 5.5)
+      doc.text('Producto', 92,  y + 5.5)
+      doc.text('Exist.',   130, y + 5.5)
+      doc.text('Cant.',    144, y + 5.5)
+      doc.text('Entrega',  158, y + 5.5)
+      doc.text('Recibe',   176, y + 5.5)
+      doc.text('Estado',   194, y + 5.5)
       y += 10
 
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
 
       data.forEach((t, i) => {
-        const productos = t.productos?.length > 0 ? t.productos : [{ producto: 'Sin productos', cantidad: '', unidad: '' }]
-        
+        const productos = t.productos?.length > 0 ? t.productos : [{ producto: 'Sin productos', cantidad: '', unidad: '', existencia: null }]
+
         productos.forEach((p, pi) => {
           if (y > 270) {
             doc.addPage()
@@ -87,15 +89,16 @@ export default function Reportes() {
           const fecha = new Date(t.created_at).toLocaleDateString('es')
           doc.setFontSize(6.5)
           doc.text(fecha, 16, y + 4)
-          doc.text((t.origen?.nombre || '').substring(0, 13), 42, y + 4)
-          doc.text((t.destino?.nombre || '').substring(0, 13), 70, y + 4)
-          doc.text((p.producto || '').substring(0, 18), 98, y + 4)
+          doc.text((t.origen?.nombre || '').substring(0, 13), 40, y + 4)
+          doc.text((t.destino?.nombre || '').substring(0, 13), 66, y + 4)
+          doc.text((p.producto || '').substring(0, 18), 92, y + 4)
+          doc.text(p.existencia != null ? String(p.existencia) : '—', 130, y + 4)
           const cantidadText = p.cantidad ? `${p.cantidad} ${p.unidad || ''}`.substring(0, 10) : ''
-          doc.text(cantidadText, 138, y + 4)
+          doc.text(cantidadText, 144, y + 4)
           if (pi === 0) {
-            doc.text((t.entrega_nombre || '—').substring(0, 10), 152, y + 4)
-            doc.text((t.recibe_nombre || '—').substring(0, 10), 174, y + 4)
-            doc.text(t.estado.substring(0, 10), 195, y + 4)
+            doc.text((t.entrega_nombre || '—').substring(0, 10), 158, y + 4)
+            doc.text((t.recibe_nombre || '—').substring(0, 10), 176, y + 4)
+            doc.text(t.estado.substring(0, 10), 194, y + 4)
           }
           y += 7
         })
@@ -124,6 +127,7 @@ export default function Reportes() {
             'Origen': idx === 0 ? (t.origen?.nombre || '') : '',
             'Destino': idx === 0 ? (t.destino?.nombre || '') : '',
             'Producto': p.producto || '',
+            'Existencia': p.existencia != null ? p.existencia : '',
             'Cantidad': p.cantidad || '',
             'Unidad': p.unidad || '',
             'Quien Entrega': idx === 0 ? (t.entrega_nombre || '') : '',
@@ -141,7 +145,7 @@ export default function Reportes() {
       // Ajustar ancho de columnas
       ws['!cols'] = [
         { wch: 20 }, { wch: 25 }, { wch: 25 },
-        { wch: 30 }, { wch: 10 }, { wch: 12 },
+        { wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 12 },
         { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 25 }
       ]
 

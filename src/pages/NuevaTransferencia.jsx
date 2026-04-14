@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Search, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
-import { supabase, getWarehouses, getProductos, createTransferenciaConProductos } from '../lib/supabase'
+import { supabase, getWarehouses, getProductos } from '../lib/supabase'
 import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, buscarProductosCache } from '../lib/offlineDB'
 
 export default function NuevaTransferencia() {
@@ -19,7 +19,7 @@ export default function NuevaTransferencia() {
   const [destinoId, setDestinoId] = useState('')
   const [entregaId, setEntregaId] = useState('')
   const [recibeId, setRecibeId] = useState('')
-  const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '' }])
+  const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '', existencia: '' }])
   const [sugerencias, setSugerencias] = useState([])
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -109,7 +109,7 @@ export default function NuevaTransferencia() {
   }
 
   function agregarProducto() {
-    setProductos([...productos, { nombre: '', cantidad: '', unidad: '' }])
+    setProductos([...productos, { nombre: '', cantidad: '', unidad: '', existencia: '' }])
   }
 
   function eliminarProducto(idx) {
@@ -149,12 +149,31 @@ export default function NuevaTransferencia() {
         return
       }
 
-      const productosProcesados = productosValidos.map(p => ({
-        nombre: p.nombre,
-        cantidad: parseFloat(p.cantidad),
-        unidad: p.unidad
-      }))
-      await createTransferenciaConProductos(transferencia, productosProcesados)
+      // Inserción directa para soportar el campo existencia
+      const { data: created, error: errTransfer } = await supabase
+        .from('transferencias')
+        .insert([transferencia])
+        .select()
+        .single()
+      if (errTransfer) throw errTransfer
+
+      const productosParaInsertar = productosValidos.map(p => {
+        const row = {
+          transferencia_id: created.id,
+          producto: p.nombre.trim(),
+          cantidad: parseFloat(p.cantidad),
+          unidad: p.unidad.trim() || '',
+        }
+        if (esCentral && p.existencia !== '') {
+          row.existencia = parseFloat(p.existencia)
+        }
+        return row
+      })
+
+      const { error: errProd } = await supabase
+        .from('transferencia_productos')
+        .insert(productosParaInsertar)
+      if (errProd) throw errProd
 
       navigate('/')
     } catch (err) {
@@ -165,7 +184,12 @@ export default function NuevaTransferencia() {
   }
 
   const almacenesDestino = almacenes.filter(a => String(a.id) !== origenId)
-  const origenNombre = almacenes.find(a => String(a.id) === origenId)?.nombre
+  const origenAlmacen = almacenes.find(a => String(a.id) === origenId)
+  const origenNombre = origenAlmacen?.nombre
+  const esCentral = !!(
+    origenAlmacen?.tipo?.toLowerCase().includes('central') ||
+    origenAlmacen?.nombre?.toLowerCase().includes('central')
+  )
   const productosValidos = productos.filter(p => p.nombre.trim() && p.cantidad).length
 
   return (
@@ -358,7 +382,7 @@ export default function NuevaTransferencia() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${esCentral ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <input
                     type="number"
                     value={prod.cantidad}
@@ -374,6 +398,17 @@ export default function NuevaTransferencia() {
                     className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
                     placeholder="Unidad (kg, lb...)"
                   />
+                  {esCentral && (
+                    <input
+                      type="number"
+                      value={prod.existencia}
+                      onChange={e => actualizarProducto(idx, 'existencia', e.target.value)}
+                      className="border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      placeholder="Existencia"
+                      min="0" step="0.01"
+                      title="Stock actual en almacén central"
+                    />
+                  )}
                 </div>
               </div>
             ))}
