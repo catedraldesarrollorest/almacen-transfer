@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Package, KeyRound, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Package, KeyRound, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -75,7 +75,7 @@ export default function AutorizarTransferencia() {
 
     if (!transferenciaSeleccionada) return
 
-    // Verificar PIN del almacén DESTINO (no del usuario logueado)
+    // Verificar PIN del almacén DESTINO
     const { data: almacen } = await supabase
       .from('warehouses')
       .select('pin')
@@ -84,10 +84,10 @@ export default function AutorizarTransferencia() {
 
     const pinDestino = almacen?.pin
     if (!pinDestino) {
-      setError('Este almacén no tiene PIN configurado.')
+      setError('Este almacén no tiene PIN configurado. Contacta al administrador.')
       return
     }
-    if (pin !== String(pinDestino)) {
+    if (String(pin) !== String(pinDestino)) {
       setError('PIN incorrecto. Inténtalo de nuevo.')
       setPin('')
       return
@@ -95,13 +95,22 @@ export default function AutorizarTransferencia() {
 
     setLoadingAutorizar(true)
     try {
-      const { error: err } = await supabase
+      const { data: updated, error: err } = await supabase
         .from('transferencias')
         .update({ estado: 'completado' })
         .eq('id', transferenciaSeleccionada.id)
+        .select('id, estado')
+        .single()
 
       if (err) throw err
+      if (!updated || updated.estado !== 'completado') {
+        throw new Error('No se pudo actualizar la transferencia. Intenta de nuevo.')
+      }
 
+      // Quitar de la lista local inmediatamente
+      setTransferenciasPendientes(prev =>
+        prev.filter(t => t.id !== transferenciaSeleccionada.id)
+      )
       setSuccess(true)
     } catch (e) {
       setError(e.message || 'Error al autorizar')
@@ -138,13 +147,12 @@ export default function AutorizarTransferencia() {
     setPin('')
     setError('')
     setSuccess(false)
-    cargarTransferenciasPendientes()
   }
 
-  // Auto-navegar al inicio 2 segundos después del éxito
+  // Auto-navegar al inicio 1.5 segundos después del éxito
   useEffect(() => {
     if (success) {
-      successTimerRef.current = setTimeout(() => navigate('/'), 2000)
+      successTimerRef.current = setTimeout(() => navigate('/'), 1500)
     }
     return () => clearTimeout(successTimerRef.current)
   }, [success])
@@ -171,13 +179,25 @@ export default function AutorizarTransferencia() {
   return (
     <div className="min-h-screen bg-gray-50 max-w-4xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
       <div className="bg-white p-4 border-b border-gray-200 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="p-2 -ml-2">
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
-          </button>
-          <h1 className="text-xl font-bold text-gray-900">
-            {transferenciaSeleccionada ? 'Autorizar Transferencia' : 'Transferencias Pendientes'}
-          </h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => transferenciaSeleccionada ? setTransferenciaSeleccionada(null) : navigate('/')} className="p-2 -ml-2">
+              <ArrowLeft className="w-6 h-6 text-gray-700" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">
+              {transferenciaSeleccionada ? 'Autorizar Transferencia' : 'Transferencias Pendientes'}
+            </h1>
+          </div>
+          {!transferenciaSeleccionada && (
+            <button
+              onClick={cargarTransferenciasPendientes}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-primary transition"
+              title="Actualizar lista"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-primary' : ''}`} />
+            </button>
+          )}
         </div>
       </div>
 
