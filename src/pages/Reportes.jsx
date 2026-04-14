@@ -38,7 +38,7 @@ export default function Reportes() {
 
       doc.setFontSize(18)
       doc.setFont('helvetica', 'bold')
-      doc.text('AlmacenTransfer - Reporte', pageW / 2, 20, { align: 'center' })
+      doc.text('La Catedral — Reporte de Transferencias', pageW / 2, 20, { align: 'center' })
 
       doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')

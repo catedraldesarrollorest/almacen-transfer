@@ -9,11 +9,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'AlmacenTransfer',
-        short_name: 'Almacen',
-        description: 'App de transferencias de almacén',
-        theme_color: '#1E3A5F',
-        background_color: '#F8FAFC',
+        name: 'Transferencias Catedral',
+        short_name: 'Catedral',
+        description: 'Sistema de transferencias de almacén — La Catedral',
+        theme_color: '#7F1D1D',
+        background_color: '#7F1D1D',
         display: 'standalone',
         orientation: 'portrait',
         icons: [
@@ -25,7 +25,8 @@ export default defineConfig({
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       },

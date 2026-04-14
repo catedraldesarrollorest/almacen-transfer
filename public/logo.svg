@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- White background -->
+  <rect width="200" height="200" fill="white"/>
+
+  <!-- Cross symbol -->
+  <rect x="88" y="14" width="24" height="70" rx="4" fill="#7F1D1D"/>
+  <rect x="64" y="30" width="72" height="22" rx="4" fill="#7F1D1D"/>
+
+  <!-- "La" text -->
+  <text x="100" y="110" text-anchor="middle" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#7F1D1D">La</text>
+
+  <!-- "CATEDRAL" text -->
+  <text x="100" y="138" text-anchor="middle" font-family="Georgia, serif" font-size="28" font-weight="bold" letter-spacing="3" fill="#7F1D1D">CATEDRAL</text>
+
+  <!-- Divider line -->
+  <line x1="30" y1="150" x2="170" y2="150" stroke="#C9A84C" stroke-width="1.5"/>
+
+  <!-- "TRANSFERENCIAS" text -->
+  <text x="100" y="168" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" letter-spacing="2" fill="#7F1D1D">TRANSFERENCIAS</text>
+</svg>

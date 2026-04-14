@@ -217,10 +217,10 @@ export default function NuevaTransferencia() {
             className="p-1.5 rounded-lg hover:bg-white/10 transition"
             title="Actualizar datos"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : 'text-blue-200'}`} />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : 'text-red-200'}`} />
           </button>
         </div>
-        <p className="text-blue-200 text-xs ml-8">
+        <p className="text-red-200 text-xs ml-8">
           {new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>

@@ -58,7 +58,7 @@ export default function Dashboard() {
       <div className="bg-primary text-white p-4 pt-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-blue-200 text-sm">Bienvenido</p>
+            <p className="text-red-200 text-sm">Bienvenido</p>
             <h1 className="text-xl font-bold">{user?.warehouseName}</h1>
             <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full mt-1 inline-block">
               {isAdmin ? 'Administrador' : 'Operador'}
@@ -71,10 +71,10 @@ export default function Dashboard() {
               className="p-2 rounded-lg hover:bg-white/10 transition"
               title="Actualizar"
             >
-              <RefreshCw className={`w-5 h-5 text-blue-200 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-5 h-5 text-red-200 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-white/10 transition">
-              <LogOut className="w-5 h-5 text-blue-200" />
+              <LogOut className="w-5 h-5 text-red-200" />
             </button>
           </div>
         </div>
@@ -84,14 +84,14 @@ export default function Dashboard() {
           <div className="bg-white/10 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
               <Clock className="w-4 h-4 text-accent" />
-              <span className="text-xs text-blue-200">Pendientes</span>
+              <span className="text-xs text-red-200">Pendientes</span>
             </div>
             <p className="text-2xl font-bold">{stats.pendientes}</p>
           </div>
           <div className="bg-white/10 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle className="w-4 h-4 text-success" />
-              <span className="text-xs text-blue-200">Completadas</span>
+              <span className="text-xs text-red-200">Completadas</span>
             </div>
             <p className="text-2xl font-bold">{stats.completadas}</p>
           </div>
