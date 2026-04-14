@@ -2,19 +2,13 @@
   <!-- White background -->
   <rect width="200" height="200" fill="white"/>
 
-  <!-- Cross symbol -->
-  <rect x="88" y="14" width="24" height="70" rx="4" fill="#7F1D1D"/>
-  <rect x="64" y="30" width="72" height="22" rx="4" fill="#7F1D1D"/>
-
-  <!-- "La" text -->
-  <text x="100" y="110" text-anchor="middle" font-family="Georgia, serif" font-size="18" font-style="italic" fill="#7F1D1D">La</text>
-
-  <!-- "CATEDRAL" text -->
-  <text x="100" y="138" text-anchor="middle" font-family="Georgia, serif" font-size="28" font-weight="bold" letter-spacing="3" fill="#7F1D1D">CATEDRAL</text>
-
-  <!-- Divider line -->
-  <line x1="30" y1="150" x2="170" y2="150" stroke="#C9A84C" stroke-width="1.5"/>
-
-  <!-- "TRANSFERENCIAS" text -->
-  <text x="100" y="168" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" letter-spacing="2" fill="#7F1D1D">TRANSFERENCIAS</text>
+  <!-- Warehouse icon centered, scaled up, color = primary red #7F1D1D -->
+  <g transform="translate(30, 38) scale(5.85)" stroke="#7F1D1D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Roof / top shape: path from lucide warehouse -->
+    <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/>
+    <!-- Three horizontal shelf lines -->
+    <line x1="6" y1="18" x2="18" y2="18"/>
+    <line x1="6" y1="14" x2="18" y2="14"/>
+    <line x1="6" y1="10" x2="18" y2="10"/>
+  </g>
 </svg>
