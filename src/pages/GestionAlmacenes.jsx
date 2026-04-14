@@ -98,7 +98,6 @@ export default function GestionAlmacenes() {
         pin: form.pin || null,
         activo: form.activo,
         qr_secret: form.qr_secret,
-        responsable: form.responsable || null
       }
 
       let result
@@ -311,19 +310,6 @@ export default function GestionAlmacenes() {
                 <p className="text-xs text-gray-500 mt-1">
                   Este PIN se usará para autorizar transferencias
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Responsable
-                </label>
-                <input
-                  type="text"
-                  value={form.responsable || ''}
-                  onChange={(e) => setForm({ ...form, responsable: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Nombre del responsable"
-                />
               </div>
 
               <div>
