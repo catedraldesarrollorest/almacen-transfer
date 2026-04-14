@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Package, KeyRound, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function AutorizarTransferencia() {
   const navigate = useNavigate()
-  const { user, warehouseId, isAdmin } = useAuth()
-  
+  const location = useLocation()
+  const { user, warehouseId, isAdmin, loading: authLoading } = useAuth()
+
   const successTimerRef = useRef(null)
   const [transferenciasPendientes, setTransferenciasPendientes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,15 +19,7 @@ export default function AutorizarTransferencia() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  // Cargar transferencias pendientes
-  // Admin: carga todas. Operador: espera a tener su warehouseId.
-  useEffect(() => {
-    if (isAdmin || warehouseId) {
-      cargarTransferenciasPendientes()
-    }
-  }, [warehouseId, isAdmin])
-
-  async function cargarTransferenciasPendientes() {
+  const cargarTransferenciasPendientes = useCallback(async () => {
     setLoading(true)
     try {
       let query = supabase
@@ -48,7 +41,12 @@ export default function AutorizarTransferencia() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAdmin, warehouseId])
+
+  // Refetch each time auth is ready OR user navigates to this page
+  useEffect(() => {
+    if (!authLoading) cargarTransferenciasPendientes()
+  }, [authLoading, cargarTransferenciasPendientes, location.key])
 
   async function seleccionarTransferencia(transferencia) {
     setError('')
@@ -149,10 +147,12 @@ export default function AutorizarTransferencia() {
     setSuccess(false)
   }
 
-  // Auto-navegar al inicio 1.5 segundos después del éxito
+  // Auto-volver a la lista 1.5 segundos después del éxito
   useEffect(() => {
     if (success) {
-      successTimerRef.current = setTimeout(() => navigate('/'), 1500)
+      successTimerRef.current = setTimeout(() => {
+        reiniciar()
+      }, 1500)
     }
     return () => clearTimeout(successTimerRef.current)
   }, [success])
