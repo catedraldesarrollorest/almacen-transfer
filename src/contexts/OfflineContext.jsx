@@ -8,10 +8,22 @@ import {
 const OfflineContext = createContext({})
 
 export function OfflineProvider({ children }) {
-  const [isOffline, setIsOffline] = useState(!navigator.onLine)
+  const [isOffline, setIsOffline] = useState(false) // assume online; events + ping will correct this
   const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
+    // Set initial state from navigator, then verify with a real ping
+    if (!navigator.onLine) setIsOffline(true)
+
+    async function verifyConnectivity() {
+      try {
+        await supabase.from('warehouses').select('id').limit(1)
+        setIsOffline(false)
+      } catch {
+        setIsOffline(true)
+      }
+    }
+    verifyConnectivity()
     function handleOnline() {
       setIsOffline(false)
       syncPendientes()

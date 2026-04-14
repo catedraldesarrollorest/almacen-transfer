@@ -1,23 +1,19 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function Dashboard() {
   const { user, isAdmin, warehouseId, signOut, loading: authLoading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [stats, setStats] = useState({ pendientes: 0, completadas: 0 })
   const [recientes, setRecientes] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (!authLoading) {
-      loadData()
-    }
-  }, [authLoading, isAdmin, warehouseId])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
+    setLoading(true)
     try {
       let query = supabase
         .from('transferencias')
@@ -25,7 +21,6 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
         .limit(20)
 
-      // Operador: solo ve las transferencias de su almacén
       if (!isAdmin && warehouseId) {
         query = query.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
       }
@@ -45,7 +40,12 @@ export default function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isAdmin, warehouseId])
+
+  // Refetch when auth is ready OR whenever we navigate to this page (location.key changes)
+  useEffect(() => {
+    if (!authLoading) loadData()
+  }, [authLoading, loadData, location.key])
 
   async function handleSignOut() {
     await signOut()
@@ -64,9 +64,19 @@ export default function Dashboard() {
               {isAdmin ? 'Administrador' : 'Operador'}
             </span>
           </div>
-          <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-white/10 transition">
-            <LogOut className="w-5 h-5 text-blue-200" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadData}
+              disabled={loading}
+              className="p-2 rounded-lg hover:bg-white/10 transition"
+              title="Actualizar"
+            >
+              <RefreshCw className={`w-5 h-5 text-blue-200 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={handleSignOut} className="p-2 rounded-lg hover:bg-white/10 transition">
+              <LogOut className="w-5 h-5 text-blue-200" />
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
