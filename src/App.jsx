@@ -11,6 +11,7 @@ import SubirInventario from './pages/SubirInventario'
 import Reportes from './pages/Reportes'
 import GestionUsuarios from './pages/GestionUsuarios'
 import GestionAlmacenes from './pages/GestionAlmacenes'
+import LimpiarRegistros from './pages/LimpiarRegistros'
 import Layout from './components/Layout'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
             <Route path="/reportes" element={<Reportes />} />
             <Route path="/admin/usuarios" element={<GestionUsuarios />} />
             <Route path="/admin/almacenes" element={<GestionAlmacenes />} />
+            <Route path="/admin/limpiar" element={<LimpiarRegistros />} />
           </Route>
         </Routes>
       </OfflineProvider>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet, BarChart2 } from 'lucide-react'
+import { ArrowLeft, Shield, Users, Warehouse, FileSpreadsheet, BarChart2, Trash2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Admin() {
@@ -44,6 +44,13 @@ export default function Admin() {
       desc: 'Crear, editar almacenes y generar QR',
       action: () => navigate('/admin/almacenes')
     },
+    {
+      icon: Trash2,
+      title: 'Limpiar Registros',
+      desc: 'Eliminar transferencias antiguas por fecha',
+      action: () => navigate('/admin/limpiar'),
+      danger: true
+    },
   ]
 
   return (
@@ -64,8 +71,8 @@ export default function Admin() {
             onClick={item.action}
             className="w-full bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 hover:shadow-md transition text-left"
           >
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-              <item.icon className="w-6 h-6 text-primary" />
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.danger ? 'bg-red-50' : 'bg-primary/10'}`}>
+              <item.icon className={`w-6 h-6 ${item.danger ? 'text-red-600' : 'text-primary'}`} />
             </div>
             <div>
               <p className="font-semibold text-gray-900">{item.title}</p>
