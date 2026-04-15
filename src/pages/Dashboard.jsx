@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut, RefreshCw } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut, RefreshCw, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -15,26 +15,45 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase
+      // Start of current month for stats
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      // Stats query — all transfers this month, no limit
+      let statsQuery = supabase
+        .from('transferencias')
+        .select('estado')
+        .gte('created_at', startOfMonth.toISOString())
+
+      if (!isAdmin && warehouseId) {
+        statsQuery = statsQuery.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
+      }
+
+      // Recent transfers query — last 5 for display
+      let recentQuery = supabase
         .from('transferencias')
         .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(5)
 
       if (!isAdmin && warehouseId) {
-        query = query.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
+        recentQuery = recentQuery.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
       }
 
-      const { data, error } = await query
-      if (error) throw error
+      const [{ data: statsData, error: e1 }, { data: recentData, error: e2 }] =
+        await Promise.all([statsQuery, recentQuery])
 
-      if (data) {
-        setRecientes(data.slice(0, 5))
+      if (e1) throw e1
+      if (e2) throw e2
+
+      if (statsData) {
         setStats({
-          pendientes: data.filter(t => t.estado === 'pendiente').length,
-          completadas: data.filter(t => t.estado === 'completado').length,
+          pendientes: statsData.filter(t => t.estado === 'pendiente').length,
+          completadas: statsData.filter(t => t.estado === 'completado').length,
         })
       }
+      if (recentData) setRecientes(recentData)
     } catch (e) {
       console.error(e)
     } finally {
@@ -42,7 +61,6 @@ export default function Dashboard() {
     }
   }, [isAdmin, warehouseId])
 
-  // Refetch when auth is ready OR whenever we navigate to this page (location.key changes)
   useEffect(() => {
     if (!authLoading) loadData()
   }, [authLoading, loadData, location.key])
@@ -52,8 +70,12 @@ export default function Dashboard() {
     navigate('/login')
   }
 
+  function irAAutorizar(t) {
+    navigate('/autorizar', { state: { transferenciaId: t.id } })
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 max-w-4xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-primary text-white p-4 pt-8">
         <div className="flex items-center justify-between mb-4">
@@ -79,19 +101,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats — counts all transfers of the current month */}
         <div className="grid grid-cols-2 gap-3 pb-4">
           <div className="bg-white/10 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
               <Clock className="w-4 h-4 text-accent" />
-              <span className="text-xs text-red-200">Pendientes</span>
+              <span className="text-xs text-red-200">Pendientes (mes)</span>
             </div>
             <p className="text-2xl font-bold">{stats.pendientes}</p>
           </div>
           <div className="bg-white/10 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle className="w-4 h-4 text-success" />
-              <span className="text-xs text-red-200">Completadas</span>
+              <span className="text-xs text-red-200">Completadas (mes)</span>
             </div>
             <p className="text-2xl font-bold">{stats.completadas}</p>
           </div>
@@ -125,10 +147,11 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-2">
-              {recientes.map(t => (
-                <div key={t.id} className="bg-white rounded-xl p-4 shadow-sm">
+              {recientes.map(t => {
+                const isPendiente = t.estado === 'pendiente'
+                const content = (
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 text-sm">
                         {t.origen?.nombre} → {t.destino?.nombre}
                       </p>
@@ -139,16 +162,33 @@ export default function Dashboard() {
                         })}
                       </p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      t.estado === 'pendiente' ? 'bg-amber-100 text-amber-700' :
-                      t.estado === 'completado' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      {t.estado}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        isPendiente ? 'bg-amber-100 text-amber-700' :
+                        t.estado === 'completado' ? 'bg-green-100 text-green-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {t.estado}
+                      </span>
+                      {isPendiente && <ChevronRight className="w-4 h-4 text-amber-500" />}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+
+                return isPendiente ? (
+                  <button
+                    key={t.id}
+                    onClick={() => irAAutorizar(t)}
+                    className="w-full bg-white rounded-xl p-4 shadow-sm text-left hover:shadow-md hover:border-amber-200 border border-transparent transition"
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div key={t.id} className="bg-white rounded-xl p-4 shadow-sm">
+                    {content}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

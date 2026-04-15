@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Package, KeyRound, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Package, KeyRound, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function AutorizarTransferencia() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, warehouseId, isAdmin, loading: authLoading } = useAuth()
+  const { warehouseId, isAdmin, loading: authLoading } = useAuth()
 
   const successTimerRef = useRef(null)
+  const autoSelectDoneRef = useRef(false)
   const [transferenciasPendientes, setTransferenciasPendientes] = useState([])
   const [loading, setLoading] = useState(true)
   const [transferenciaSeleccionada, setTransferenciaSeleccionada] = useState(null)
@@ -45,8 +46,20 @@ export default function AutorizarTransferencia() {
 
   // Refetch each time auth is ready OR user navigates to this page
   useEffect(() => {
+    autoSelectDoneRef.current = false
     if (!authLoading) cargarTransferenciasPendientes()
   }, [authLoading, cargarTransferenciasPendientes, location.key])
+
+  // Auto-select a transfer when arriving from Dashboard tap
+  useEffect(() => {
+    const targetId = location.state?.transferenciaId
+    if (!targetId || autoSelectDoneRef.current || loading || transferenciasPendientes.length === 0) return
+    const match = transferenciasPendientes.find(t => t.id === targetId)
+    if (match) {
+      autoSelectDoneRef.current = true
+      seleccionarTransferencia(match)
+    }
+  }, [transferenciasPendientes, loading, location.state])
 
   async function seleccionarTransferencia(transferencia) {
     setError('')
