@@ -24,6 +24,9 @@ export default function NuevaTransferencia() {
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [modalCrear, setModalCrear] = useState(null) // { idx, nombre }
+  const [unidadNueva, setUnidadNueva] = useState('')
+  const [guardandoProducto, setGuardandoProducto] = useState(false)
   const debounceRef = useRef(null)
 
   useEffect(() => {
@@ -120,18 +123,29 @@ export default function NuevaTransferencia() {
     }
   }
 
-  async function crearNuevoProducto(idx, nombre) {
+  function abrirModalCrear(idx, nombre) {
+    setUnidadNueva('')
+    setModalCrear({ idx, nombre: nombre.trim() })
+    setSugerencias([])
+    setProductoActivo(null)
+  }
+
+  async function confirmarCrearProducto() {
+    if (!modalCrear) return
+    setGuardandoProducto(true)
     try {
       const { data, error } = await supabase
         .from('productos_base')
-        .insert([{ nombre: nombre.trim() }])
+        .insert([{ nombre: modalCrear.nombre, unidad_medida: unidadNueva.trim() || null }])
         .select()
         .single()
       if (error) throw error
-      // Auto-seleccionar el producto recién creado
-      seleccionarProducto(idx, data)
+      seleccionarProducto(modalCrear.idx, data)
+      setModalCrear(null)
     } catch (e) {
       setError('Error al crear el producto: ' + (e.message || ''))
+    } finally {
+      setGuardandoProducto(false)
     }
   }
 
@@ -215,7 +229,8 @@ export default function NuevaTransferencia() {
   const origenNombre = origenAlmacen?.nombre
   const _nombre = origenAlmacen?.nombre?.toLowerCase() || ''
   const tieneExistencia = _nombre.includes('central') || _nombre.includes('ciudad libertad') || _nombre.includes('copmar')
-  const puedeCrearProducto = isAdmin || user?.warehouseName?.toLowerCase().includes('deliver')
+  const _wName = user?.warehouseName?.toLowerCase() || ''
+  const puedeCrearProducto = isAdmin || _wName === 'almacén deliver' || _wName === 'almacen deliver'
 
   async function fetchUltimaExistencia(origenId, nombreProducto) {
     try {
@@ -435,11 +450,11 @@ export default function NuevaTransferencia() {
                       {puedeCrearProducto && prod.nombre.trim().length >= 2 && (
                         <button
                           type="button"
-                          onMouseDown={() => crearNuevoProducto(idx, prod.nombre)}
+                          onMouseDown={() => abrirModalCrear(idx, prod.nombre)}
                           className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 text-primary font-semibold hover:bg-primary/5 border-t border-gray-100"
                         >
                           <PlusCircle className="w-4 h-4 flex-shrink-0" />
-                          Crear "{prod.nombre.trim()}" y agregarlo
+                          Crear "{prod.nombre.trim()}"
                         </button>
                       )}
                     </div>
@@ -497,6 +512,54 @@ export default function NuevaTransferencia() {
           {loading ? 'Creando...' : `Crear Transferencia${productosValidos > 0 ? ` · ${productosValidos} producto${productosValidos > 1 ? 's' : ''}` : ''}`}
         </button>
       </form>
+
+      {/* Modal: crear nuevo producto */}
+      {modalCrear && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <h3 className="text-base font-bold text-gray-900">Nuevo producto</h3>
+
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Nombre</p>
+              <p className="text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl px-3 py-2.5">
+                {modalCrear.nombre}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Unidad de medida <span className="text-gray-400">(kg, lb, ud, l…)</span>
+              </label>
+              <input
+                type="text"
+                value={unidadNueva}
+                onChange={e => setUnidadNueva(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="Ej: kg"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setModalCrear(null)}
+                className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarCrearProducto}
+                disabled={guardandoProducto}
+                className="flex-1 bg-primary text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-50"
+              >
+                {guardandoProducto ? 'Guardando...' : 'Guardar y usar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
