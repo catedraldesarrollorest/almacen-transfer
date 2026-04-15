@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Search, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search, RefreshCw, PlusCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos } from '../lib/supabase'
@@ -120,6 +120,21 @@ export default function NuevaTransferencia() {
     }
   }
 
+  async function crearNuevoProducto(idx, nombre) {
+    try {
+      const { data, error } = await supabase
+        .from('productos_base')
+        .insert([{ nombre: nombre.trim() }])
+        .select()
+        .single()
+      if (error) throw error
+      // Auto-seleccionar el producto recién creado
+      seleccionarProducto(idx, data)
+    } catch (e) {
+      setError('Error al crear el producto: ' + (e.message || ''))
+    }
+  }
+
   function agregarProducto() {
     setProductos([...productos, { nombre: '', cantidad: '', unidad: '', existencia: '' }])
   }
@@ -200,6 +215,7 @@ export default function NuevaTransferencia() {
   const origenNombre = origenAlmacen?.nombre
   const _nombre = origenAlmacen?.nombre?.toLowerCase() || ''
   const tieneExistencia = _nombre.includes('central') || _nombre.includes('ciudad libertad') || _nombre.includes('copmar')
+  const puedeCrearProducto = isAdmin || user?.warehouseName?.toLowerCase().includes('deliver')
 
   async function fetchUltimaExistencia(origenId, nombreProducto) {
     try {
@@ -400,19 +416,32 @@ export default function NuevaTransferencia() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  {productoActivo === idx && sugerencias.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto">
+                  {productoActivo === idx && (sugerencias.length > 0 || (puedeCrearProducto && prod.nombre.length >= 2)) && (
+                    <div className="absolute top-full left-0 right-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto">
+                      {sugerencias.length === 0 && (
+                        <p className="px-3 py-2 text-xs text-gray-400 italic">Sin resultados para "{prod.nombre}"</p>
+                      )}
                       {sugerencias.map(s => (
                         <button
                           key={s.id}
                           type="button"
                           onMouseDown={() => seleccionarProducto(idx, s)}
-                          className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between"
+                          className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                         >
                           <span className="font-medium">{s.nombre}</span>
                           {s.unidad_medida && <span className="text-gray-400 text-xs">{s.unidad_medida}</span>}
                         </button>
                       ))}
+                      {puedeCrearProducto && prod.nombre.trim().length >= 2 && (
+                        <button
+                          type="button"
+                          onMouseDown={() => crearNuevoProducto(idx, prod.nombre)}
+                          className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 text-primary font-semibold hover:bg-primary/5 border-t border-gray-100"
+                        >
+                          <PlusCircle className="w-4 h-4 flex-shrink-0" />
+                          Crear "{prod.nombre.trim()}" y agregarlo
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
