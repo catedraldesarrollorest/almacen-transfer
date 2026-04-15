@@ -106,6 +106,18 @@ export default function NuevaTransferencia() {
     setProductos(updated)
     setSugerencias([])
     setProductoActivo(null)
+    // Auto-fetch última existencia si el almacén la requiere
+    if (tieneExistencia && origenId) {
+      fetchUltimaExistencia(origenId, prod.nombre).then(existencia => {
+        if (existencia !== null) {
+          setProductos(prev => {
+            const next = [...prev]
+            next[idx] = { ...next[idx], existencia: String(existencia) }
+            return next
+          })
+        }
+      })
+    }
   }
 
   function agregarProducto() {
@@ -164,7 +176,7 @@ export default function NuevaTransferencia() {
           cantidad: parseFloat(p.cantidad),
           unidad: p.unidad.trim() || '',
         }
-        if (esCentral && p.existencia !== '') {
+        if (tieneExistencia && p.existencia !== '') {
           row.existencia = parseFloat(p.existencia)
         }
         return row
@@ -186,10 +198,33 @@ export default function NuevaTransferencia() {
   const almacenesDestino = almacenes.filter(a => String(a.id) !== origenId)
   const origenAlmacen = almacenes.find(a => String(a.id) === origenId)
   const origenNombre = origenAlmacen?.nombre
-  const esCentral = !!(
-    origenAlmacen?.tipo?.toLowerCase().includes('central') ||
-    origenAlmacen?.nombre?.toLowerCase().includes('central')
-  )
+  const _nombre = origenAlmacen?.nombre?.toLowerCase() || ''
+  const tieneExistencia = _nombre.includes('central') || _nombre.includes('ciudad libertad') || _nombre.includes('copmar')
+
+  async function fetchUltimaExistencia(origenId, nombreProducto) {
+    try {
+      const { data: recientes } = await supabase
+        .from('transferencias')
+        .select('id')
+        .eq('origen_id', parseInt(origenId))
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (!recientes?.length) return null
+      const ids = recientes.map(t => t.id)
+      const { data: prods } = await supabase
+        .from('transferencia_productos')
+        .select('existencia, transferencia_id')
+        .in('transferencia_id', ids)
+        .ilike('producto', nombreProducto.trim())
+        .not('existencia', 'is', null)
+      if (!prods?.length) return null
+      // Ordenar por la transferencia más reciente (posición en el array ids)
+      prods.sort((a, b) => ids.indexOf(a.transferencia_id) - ids.indexOf(b.transferencia_id))
+      return prods[0].existencia
+    } catch {
+      return null
+    }
+  }
   const productosValidos = productos.filter(p => p.nombre.trim() && p.cantidad).length
 
   return (
@@ -382,7 +417,7 @@ export default function NuevaTransferencia() {
                   )}
                 </div>
 
-                <div className={`grid gap-2 ${esCentral ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                <div className={`grid gap-2 ${tieneExistencia ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <input
                     type="number"
                     value={prod.cantidad}
@@ -398,7 +433,7 @@ export default function NuevaTransferencia() {
                     className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
                     placeholder="Unidad (kg, lb...)"
                   />
-                  {esCentral && (
+                  {tieneExistencia && (
                     <input
                       type="number"
                       value={prod.existencia}
