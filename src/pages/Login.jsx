@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Warehouse } from 'lucide-react'
@@ -9,6 +9,21 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { signIn } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key >= '0' && e.key <= '9') {
+        handleDigit(e.key)
+      } else if (e.key === 'Backspace') {
+        handleBorrar()
+      } else if (e.key === 'Escape') {
+        setPin('')
+        setError('')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [pin]) // Re-bind when pin changes so handleDigit has latest state closure
 
   async function handleSubmit(e) {
     e.preventDefault()
