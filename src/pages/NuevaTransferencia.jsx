@@ -19,7 +19,7 @@ export default function NuevaTransferencia() {
   const [destinoId, setDestinoId] = useState('')
   const [entregaId, setEntregaId] = useState('')
   const [recibeId, setRecibeId] = useState('')
-  const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '', existencia: '' }])
+  const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '', existencia: '', seleccionado: false }])
   const [sugerencias, setSugerencias] = useState([])
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -87,6 +87,7 @@ export default function NuevaTransferencia() {
   function buscarProductos(idx, query) {
     const updated = [...productos]
     updated[idx].nombre = query
+    updated[idx].seleccionado = false
     setProductos(updated)
     setProductoActivo(idx)
     clearTimeout(debounceRef.current)
@@ -106,6 +107,7 @@ export default function NuevaTransferencia() {
     const updated = [...productos]
     updated[idx].nombre = prod.nombre
     updated[idx].unidad = prod.unidad_medida || ''
+    updated[idx].seleccionado = true
     setProductos(updated)
     setSugerencias([])
     setProductoActivo(null)
@@ -150,7 +152,7 @@ export default function NuevaTransferencia() {
   }
 
   function agregarProducto() {
-    setProductos([...productos, { nombre: '', cantidad: '', unidad: '', existencia: '' }])
+    setProductos([...productos, { nombre: '', cantidad: '', unidad: '', existencia: '', seleccionado: false }])
   }
 
   function eliminarProducto(idx) {
@@ -168,10 +170,33 @@ export default function NuevaTransferencia() {
     e.preventDefault()
     setError('')
 
-    if (!origenId || !destinoId) return setError('Selecciona almacén de origen y destino')
-    if (origenId === destinoId) return setError('Origen y destino no pueden ser el mismo')
-    const productosValidos = productos.filter(p => p.nombre.trim() && p.cantidad)
-    if (productosValidos.length === 0) return setError('Agrega al menos un producto con cantidad')
+    const errores = []
+
+    if (!origenId) errores.push('• Almacén de origen')
+    if (!destinoId) errores.push('• Almacén de destino')
+    if (origenId && destinoId && origenId === destinoId) {
+      return setError('El almacén de origen y destino no pueden ser el mismo.')
+    }
+
+    if (!entregaId) errores.push('• Quien entrega')
+    if (!recibeId) errores.push('• Quien recibe')
+
+    const productosConNombre = productos.filter(p => p.nombre.trim())
+    if (productosConNombre.length === 0) {
+      errores.push('• Al menos un producto')
+    } else {
+      productosConNombre.forEach((p, i) => {
+        const num = productos.indexOf(p) + 1
+        if (!p.seleccionado) errores.push(`• Producto ${num} ("${p.nombre}"): debe seleccionarse de la lista`)
+        if (!p.cantidad || parseFloat(p.cantidad) <= 0) errores.push(`• Producto ${num}: la cantidad debe ser mayor a cero`)
+      })
+    }
+
+    if (errores.length > 0) {
+      return setError('Faltan campos por completar:\n' + errores.join('\n'))
+    }
+
+    const productosValidos = productosConNombre.filter(p => p.seleccionado && p.cantidad && parseFloat(p.cantidad) > 0)
 
     setLoading(true)
     try {
@@ -293,7 +318,7 @@ export default function NuevaTransferencia() {
 
       <form onSubmit={handleSubmit} className="p-4 space-y-3 pb-8">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3 whitespace-pre-line">
             {error}
           </div>
         )}
@@ -365,14 +390,12 @@ export default function NuevaTransferencia() {
                     <option key={p.id} value={p.id}>{p.nombre}{p.cargo ? ` - ${p.cargo}` : ''}</option>
                   ))}
                 </select>
+              ) : origenId ? (
+                <p className="w-full border border-amber-200 bg-amber-50 text-amber-700 rounded-xl px-4 py-3 text-sm">
+                  No hay personal registrado para este almacén
+                </p>
               ) : (
-                <input
-                  type="text"
-                  value={entregaId}
-                  onChange={e => setEntregaId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  placeholder="Nombre completo"
-                />
+                <p className="text-sm text-gray-400 px-1">Selecciona primero el almacén de origen</p>
               )}
             </div>
             <div>
@@ -388,14 +411,12 @@ export default function NuevaTransferencia() {
                     <option key={p.id} value={p.id}>{p.nombre}{p.cargo ? ` - ${p.cargo}` : ''}</option>
                   ))}
                 </select>
+              ) : destinoId ? (
+                <p className="w-full border border-amber-200 bg-amber-50 text-amber-700 rounded-xl px-4 py-3 text-sm">
+                  No hay personal registrado para este almacén
+                </p>
               ) : (
-                <input
-                  type="text"
-                  value={recibeId}
-                  onChange={e => setRecibeId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  placeholder="Nombre completo"
-                />
+                <p className="text-sm text-gray-400 px-1">Selecciona primero el almacén de destino</p>
               )}
             </div>
           </div>
@@ -473,9 +494,9 @@ export default function NuevaTransferencia() {
                   <input
                     type="text"
                     value={prod.unidad}
-                    onChange={e => actualizarProducto(idx, 'unidad', e.target.value)}
-                    className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    placeholder="Unidad (kg, lb...)"
+                    readOnly
+                    className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
+                    placeholder="Unidad"
                   />
                   {tieneExistencia && (
                     <input
