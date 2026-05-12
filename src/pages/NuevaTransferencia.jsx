@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos } from '../lib/supabase'
 import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, buscarProductosCache } from '../lib/offlineDB'
+import { fechaHoy } from '../lib/dateUtils'
 
 export default function NuevaTransferencia() {
   const navigate = useNavigate()
@@ -312,7 +313,7 @@ export default function NuevaTransferencia() {
           </button>
         </div>
         <p className="text-red-200 text-xs ml-8">
-          {new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {fechaHoy()}
         </p>
       </div>
 

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { formatFecha } from '../lib/dateUtils'
 
 export default function Historial() {
   const navigate = useNavigate()
@@ -159,7 +160,7 @@ export default function Historial() {
                         {t.estado}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {new Date(t.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
+                        {formatFecha(t.created_at, { day: '2-digit', month: 'short' })}
                       </span>
                       {expandedId === t.id
                         ? <ChevronUp className="w-4 h-4 text-gray-400 mt-0.5" />

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, FileSpreadsheet, Download, Calendar } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { formatFecha, formatFechaHora } from '../lib/dateUtils'
 import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
 
@@ -86,7 +87,7 @@ export default function Reportes() {
             doc.setFillColor(248, 250, 252)
             doc.rect(14, y - 1, pageW - 28, 7, 'F')
           }
-          const fecha = new Date(t.created_at).toLocaleDateString('es')
+          const fecha = formatFecha(t.created_at)
           doc.setFontSize(6.5)
           doc.text(fecha, 16, y + 4)
           doc.text((t.origen?.nombre || '').substring(0, 13), 40, y + 4)
@@ -123,7 +124,7 @@ export default function Reportes() {
         const productos = t.productos?.length > 0 ? t.productos : [{ producto: 'Sin productos', cantidad: '', unidad: '' }]
         productos.forEach((p, idx) => {
           rows.push({
-            'Fecha': idx === 0 ? new Date(t.created_at).toLocaleString('es') : '',
+            'Fecha': idx === 0 ? formatFechaHora(t.created_at) : '',
             'Origen': idx === 0 ? (t.origen?.nombre || '') : '',
             'Destino': idx === 0 ? (t.destino?.nombre || '') : '',
             'Producto': p.producto || '',

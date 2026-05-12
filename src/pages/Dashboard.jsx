@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut, RefreshCw, ChevronRight } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { formatFechaHora } from '../lib/dateUtils'
 
 export default function Dashboard() {
   const { user, isAdmin, warehouseId, signOut, loading: authLoading } = useAuth()
@@ -156,7 +157,7 @@ export default function Dashboard() {
                         {t.origen?.nombre} → {t.destino?.nombre}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(t.created_at).toLocaleString('es', {
+                        {formatFechaHora(t.created_at, {
                           day: '2-digit', month: 'short',
                           hour: '2-digit', minute: '2-digit'
                         })}

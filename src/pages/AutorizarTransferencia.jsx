@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Package, KeyRound, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { formatFechaHora } from '../lib/dateUtils'
 
 export default function AutorizarTransferencia() {
   const navigate = useNavigate()
@@ -255,7 +256,7 @@ export default function AutorizarTransferencia() {
                           {t.entrega_nombre && `Entrega: ${t.entrega_nombre}`}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(t.created_at).toLocaleString('es', {
+                          {formatFechaHora(t.created_at, {
                             day: '2-digit',
                             month: 'short',
                             hour: '2-digit',
