@@ -13,6 +13,7 @@ import GestionUsuarios from './pages/GestionUsuarios'
 import GestionAlmacenes from './pages/GestionAlmacenes'
 import LimpiarRegistros from './pages/LimpiarRegistros'
 import InventarioAdmin from './pages/InventarioAdmin'
+import NoLeidas from './pages/NoLeidas'
 import Layout from './components/Layout'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
             <Route path="/admin/almacenes" element={<GestionAlmacenes />} />
             <Route path="/admin/limpiar" element={<LimpiarRegistros />} />
             <Route path="/admin/inventario" element={<InventarioAdmin />} />
+            <Route path="/admin/no-leidas" element={<NoLeidas />} />
           </Route>
         </Routes>
       </OfflineProvider>
