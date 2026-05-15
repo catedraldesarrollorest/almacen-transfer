@@ -319,7 +319,12 @@ export default function AutorizarTransferencia() {
                   {productos.map((p, i) => (
                     <div key={i} className="flex justify-between text-sm py-1.5 border-b border-gray-100 last:border-0">
                       <span className="text-gray-800">{p.producto}</span>
-                      <span className="font-medium text-gray-900">{p.cantidad} {p.unidad}</span>
+                      <div className="text-right">
+                        <span className="font-medium text-gray-900">{p.cantidad} {p.unidad}</span>
+                        {p.cajas != null && p.unidades_por_caja != null && (
+                          <span className="block text-xs text-blue-500">↳ {p.cajas} cajas × {p.unidades_por_caja} und/caja</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
