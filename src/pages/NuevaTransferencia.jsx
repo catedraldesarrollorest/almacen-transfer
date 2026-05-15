@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos } from '../lib/supabase'
 import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, buscarProductosCache } from '../lib/offlineDB'
+import { fechaHoy } from '../lib/dateUtils'
 
 export default function NuevaTransferencia() {
   const navigate = useNavigate()
@@ -19,7 +20,7 @@ export default function NuevaTransferencia() {
   const [destinoId, setDestinoId] = useState('')
   const [entregaId, setEntregaId] = useState('')
   const [recibeId, setRecibeId] = useState('')
-  const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '', existencia: '', seleccionado: false }])
+  const [productos, setProductos] = useState([{ nombre: '', cantidad: '', unidad: '', existencia: '', seleccionado: false, cajas: '', unidadesPorCaja: '' }])
   const [sugerencias, setSugerencias] = useState([])
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -152,7 +153,7 @@ export default function NuevaTransferencia() {
   }
 
   function agregarProducto() {
-    setProductos([...productos, { nombre: '', cantidad: '', unidad: '', existencia: '', seleccionado: false }])
+    setProductos([...productos, { nombre: '', cantidad: '', unidad: '', existencia: '', seleccionado: false, cajas: '', unidadesPorCaja: '' }])
   }
 
   function eliminarProducto(idx) {
@@ -163,6 +164,17 @@ export default function NuevaTransferencia() {
   function actualizarProducto(idx, campo, valor) {
     const updated = [...productos]
     updated[idx][campo] = valor
+    setProductos(updated)
+  }
+
+  function actualizarCajas(idx, campo, valor) {
+    const updated = [...productos]
+    updated[idx][campo] = valor
+    const c = parseFloat(campo === 'cajas' ? valor : updated[idx].cajas)
+    const u = parseFloat(campo === 'unidadesPorCaja' ? valor : updated[idx].unidadesPorCaja)
+    if (!isNaN(c) && !isNaN(u) && u > 0) {
+      updated[idx].cantidad = String(c * u)
+    }
     setProductos(updated)
   }
 
@@ -233,6 +245,10 @@ export default function NuevaTransferencia() {
         if (tieneExistencia && p.existencia !== '') {
           row.existencia = parseFloat(p.existencia)
         }
+        if (esCiudadLibertad && p.cajas !== '' && p.unidadesPorCaja !== '') {
+          row.cajas = parseFloat(p.cajas)
+          row.unidades_por_caja = parseFloat(p.unidadesPorCaja)
+        }
         return row
       })
 
@@ -254,6 +270,7 @@ export default function NuevaTransferencia() {
   const origenNombre = origenAlmacen?.nombre
   const _nombre = origenAlmacen?.nombre?.toLowerCase() || ''
   const tieneExistencia = _nombre.includes('central') || _nombre.includes('ciudad libertad') || _nombre.includes('copmar')
+  const esCiudadLibertad = _nombre.includes('ciudad libertad')
   const _wName = user?.warehouseName?.toLowerCase() || ''
   const puedeCrearProducto = isAdmin || _wName === 'almacén deliver' || _wName === 'almacen deliver'
 
@@ -312,7 +329,7 @@ export default function NuevaTransferencia() {
           </button>
         </div>
         <p className="text-red-200 text-xs ml-8">
-          {new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {fechaHoy()}
         </p>
       </div>
 
@@ -482,34 +499,83 @@ export default function NuevaTransferencia() {
                   )}
                 </div>
 
-                <div className={`grid gap-2 ${tieneExistencia ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                  <input
-                    type="number"
-                    value={prod.cantidad}
-                    onChange={e => actualizarProducto(idx, 'cantidad', e.target.value)}
-                    className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    placeholder="Cantidad"
-                    min="0" step="0.01"
-                  />
-                  <input
-                    type="text"
-                    value={prod.unidad}
-                    readOnly
-                    className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
-                    placeholder="Unidad"
-                  />
-                  {tieneExistencia && (
+                {esCiudadLibertad ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="number"
+                        value={prod.unidadesPorCaja}
+                        onChange={e => actualizarCajas(idx, 'unidadesPorCaja', e.target.value)}
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Und/caja"
+                        min="0" step="0.01"
+                      />
+                      <input
+                        type="number"
+                        value={prod.cajas}
+                        onChange={e => actualizarCajas(idx, 'cajas', e.target.value)}
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Cajas"
+                        min="0" step="0.01"
+                      />
+                      <input
+                        type="number"
+                        value={prod.cantidad}
+                        onChange={e => actualizarProducto(idx, 'cantidad', e.target.value)}
+                        className="border border-primary/40 rounded-xl px-3 py-2.5 text-sm bg-primary/5 font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Unidades"
+                        min="0" step="0.01"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={prod.unidad}
+                        readOnly
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
+                        placeholder="Unidad"
+                      />
+                      <input
+                        type="number"
+                        value={prod.existencia}
+                        onChange={e => actualizarProducto(idx, 'existencia', e.target.value)}
+                        className="border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                        placeholder="Existencia"
+                        min="0" step="0.01"
+                        title="Stock actual en almacén"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className={`grid gap-2 ${tieneExistencia ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <input
                       type="number"
-                      value={prod.existencia}
-                      onChange={e => actualizarProducto(idx, 'existencia', e.target.value)}
-                      className="border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      placeholder="Existencia"
+                      value={prod.cantidad}
+                      onChange={e => actualizarProducto(idx, 'cantidad', e.target.value)}
+                      className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="Cantidad"
                       min="0" step="0.01"
-                      title="Stock actual en almacén central"
                     />
-                  )}
-                </div>
+                    <input
+                      type="text"
+                      value={prod.unidad}
+                      readOnly
+                      className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
+                      placeholder="Unidad"
+                    />
+                    {tieneExistencia && (
+                      <input
+                        type="number"
+                        value={prod.existencia}
+                        onChange={e => actualizarProducto(idx, 'existencia', e.target.value)}
+                        className="border border-amber-200 rounded-xl px-3 py-2.5 text-sm bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                        placeholder="Existencia"
+                        min="0" step="0.01"
+                        title="Stock actual en almacén central"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             ))}
 

@@ -170,6 +170,9 @@ export default function NoLeidas() {
                                     <span className="text-gray-700">{p.producto}</span>
                                     <div className="text-right">
                                       <span className="font-medium text-gray-900">{p.cantidad} {p.unidad}</span>
+                                      {p.cajas != null && p.unidades_por_caja != null && (
+                                        <span className="block text-xs text-blue-500">↳ {p.cajas} cajas × {p.unidades_por_caja} und/caja</span>
+                                      )}
                                       {p.existencia != null && (
                                         <span className="block text-xs text-amber-600">Exist: {p.existencia}</span>
                                       )}
