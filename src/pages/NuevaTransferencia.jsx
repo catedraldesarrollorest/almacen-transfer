@@ -25,7 +25,7 @@ export default function NuevaTransferencia() {
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [modalCrear, setModalCrear] = useState(null) // { idx, nombre }
+  const [modalCrear, setModalCrear] = useState(null)
   const [unidadNueva, setUnidadNueva] = useState('')
   const [guardandoProducto, setGuardandoProducto] = useState(false)
   const debounceRef = useRef(null)
@@ -112,7 +112,6 @@ export default function NuevaTransferencia() {
     setProductos(updated)
     setSugerencias([])
     setProductoActivo(null)
-    // Auto-fetch última existencia si el almacén la requiere
     if (tieneExistencia && origenId) {
       fetchUltimaExistencia(origenId, prod.nombre).then(existencia => {
         if (existencia !== null) {
@@ -172,8 +171,15 @@ export default function NuevaTransferencia() {
     updated[idx][campo] = valor
     const c = parseFloat(campo === 'cajas' ? valor : updated[idx].cajas)
     const u = parseFloat(campo === 'unidadesPorCaja' ? valor : updated[idx].unidadesPorCaja)
-    if (!isNaN(c) && !isNaN(u) && u > 0) {
-      updated[idx].cantidad = String(c * u)
+    const cant = parseFloat(campo === 'cantidad' ? valor : updated[idx].cantidad)
+    if (campo === 'cantidad') {
+      if (!isNaN(cant) && !isNaN(u) && u > 0) {
+        updated[idx].cajas = String(cant / u)
+      }
+    } else {
+      if (!isNaN(c) && !isNaN(u) && u > 0) {
+        updated[idx].cantidad = String(c * u)
+      }
     }
     setProductos(updated)
   }
@@ -227,7 +233,6 @@ export default function NuevaTransferencia() {
         return
       }
 
-      // Inserción directa para soportar el campo existencia
       const { data: created, error: errTransfer } = await supabase
         .from('transferencias')
         .insert([transferencia])
@@ -291,7 +296,6 @@ export default function NuevaTransferencia() {
         .ilike('producto', nombreProducto.trim())
         .not('existencia', 'is', null)
       if (!prods?.length) return null
-      // Ordenar por la transferencia más reciente (posición en el array ids)
       prods.sort((a, b) => ids.indexOf(a.transferencia_id) - ids.indexOf(b.transferencia_id))
       return prods[0].existencia
     } catch {
@@ -504,14 +508,6 @@ export default function NuevaTransferencia() {
                     <div className="grid grid-cols-3 gap-2">
                       <input
                         type="number"
-                        value={prod.unidadesPorCaja}
-                        onChange={e => actualizarCajas(idx, 'unidadesPorCaja', e.target.value)}
-                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        placeholder="Und/caja"
-                        min="0" step="0.01"
-                      />
-                      <input
-                        type="number"
                         value={prod.cajas}
                         onChange={e => actualizarCajas(idx, 'cajas', e.target.value)}
                         className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -520,8 +516,16 @@ export default function NuevaTransferencia() {
                       />
                       <input
                         type="number"
+                        value={prod.unidadesPorCaja}
+                        onChange={e => actualizarCajas(idx, 'unidadesPorCaja', e.target.value)}
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Und/caja"
+                        min="0" step="0.01"
+                      />
+                      <input
+                        type="number"
                         value={prod.cantidad}
-                        onChange={e => actualizarProducto(idx, 'cantidad', e.target.value)}
+                        onChange={e => actualizarCajas(idx, 'cantidad', e.target.value)}
                         className="border border-primary/40 rounded-xl px-3 py-2.5 text-sm bg-primary/5 font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
                         placeholder="Unidades"
                         min="0" step="0.01"
