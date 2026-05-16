@@ -51,10 +51,15 @@ export default function Dashboard() {
       if (e2) throw e2
 
       if (statsData) {
+        const pendientes = statsData.filter(t => t.estado === 'pendiente').length
         setStats({
-          pendientes: statsData.filter(t => t.estado === 'pendiente').length,
+          pendientes,
           completadas: statsData.filter(t => t.estado === 'completado').length,
         })
+        // Update app icon badge with pending transfer count
+        if ('setAppBadge' in navigator) {
+          pendientes > 0 ? navigator.setAppBadge(pendientes) : navigator.clearAppBadge()
+        }
       }
       if (recentData) setRecientes(recentData)
     } catch (e) {
