@@ -327,6 +327,15 @@ export default function NuevaTransferencia() {
         .insert(productosParaInsertar)
       if (errProd) throw errProd
 
+      // Enviar notificación push al almacén destino (no bloquea si falla)
+      supabase.functions.invoke('notify-transfer', {
+        body: {
+          destino_id: parseInt(destinoId),
+          origen_nombre: origenNombre,
+          destino_nombre: almacenesDestino.find(a => String(a.id) === destinoId)?.nombre,
+        }
+      }).catch(() => {})
+
       navigate('/')
     } catch (err) {
       setError(err.message || 'Error al crear la transferencia')
