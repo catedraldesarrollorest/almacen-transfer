@@ -14,6 +14,7 @@ function urlBase64ToUint8Array(base64String) {
 export function usePushNotifications() {
   const { warehouseId, loading: authLoading } = useAuth()
   const [status, setStatus] = useState('idle') // idle | loading | granted | denied | error
+  const [errorMsg, setErrorMsg] = useState('')
 
   const isSupported = typeof window !== 'undefined' &&
     'serviceWorker' in navigator &&
@@ -23,6 +24,7 @@ export function usePushNotifications() {
   const subscribe = useCallback(async () => {
     if (!isSupported || !warehouseId) return false
     setStatus('loading')
+    setErrorMsg('')
     try {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
@@ -30,10 +32,15 @@ export function usePushNotifications() {
         return false
       }
 
-      const registration = await navigator.serviceWorker.ready
-      let subscription = await registration.pushManager.getSubscription()
+      // Wait for SW with a timeout to avoid hanging indefinitely
+      const swReady = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('SW timeout')), 10000))
+      ])
+
+      let subscription = await swReady.pushManager.getSubscription()
       if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
+        subscription = await swReady.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         })
@@ -50,6 +57,7 @@ export function usePushNotifications() {
       return true
     } catch (err) {
       console.error('Push subscribe error:', err)
+      setErrorMsg(err?.message || String(err))
       setStatus('error')
       return false
     }
@@ -63,7 +71,7 @@ export function usePushNotifications() {
     } else {
       setStatus(Notification.permission === 'denied' ? 'denied' : 'idle')
     }
-  }, [authLoading, warehouseId])
+  }, [authLoading, warehouseId, subscribe])
 
-  return { status, subscribe, isSupported }
+  return { status, errorMsg, subscribe, isSupported }
 }
