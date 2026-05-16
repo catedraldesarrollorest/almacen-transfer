@@ -1,11 +1,74 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Search, RefreshCw, PlusCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search, RefreshCw, PlusCircle, ChevronDown, X, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useOffline } from '../contexts/OfflineContext'
 import { supabase, getWarehouses, getProductos } from '../lib/supabase'
 import { guardarTransferenciaPendiente, getWarehousesCache, getPersonalCache, buscarProductosCache } from '../lib/offlineDB'
 import { fechaHoy } from '../lib/dateUtils'
+
+function SelectModal({ value, onChange, options, placeholder, disabled }) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(o => String(o.value) === String(value))
+
+  return (
+    <>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen(true)}
+        className={`w-full border rounded-xl px-4 py-3 text-sm text-left flex items-center justify-between focus:outline-none transition
+          ${disabled ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' : 'border-gray-200 bg-white hover:border-primary/40 focus:ring-2 focus:ring-primary/30'}
+        `}
+      >
+        <span className={selected ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setOpen(false)}>
+          <div
+            className="bg-white rounded-t-2xl w-full max-w-lg max-h-[70vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900 text-base">{placeholder}</h3>
+              <button type="button" onClick={() => setOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 py-1">
+              {options.map(opt => {
+                const isSelected = String(value) === String(opt.value)
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { onChange(opt.value); setOpen(false) }}
+                    className={`w-full px-4 py-3.5 text-left flex items-center justify-between transition
+                      ${isSelected ? 'bg-primary/5' : 'hover:bg-gray-50'}
+                    `}
+                  >
+                    <span className={`text-sm ${isSelected ? 'font-semibold text-primary' : 'text-gray-800'}`}>
+                      {opt.label}
+                    </span>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition
+                      ${isSelected ? 'border-primary bg-primary' : 'border-gray-300'}
+                    `}>
+                      {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 export default function NuevaTransferencia() {
   const navigate = useNavigate()
@@ -360,15 +423,12 @@ export default function NuevaTransferencia() {
                   {origenNombre || '...'}
                 </div>
               ) : (
-                <select
+                <SelectModal
                   value={origenId}
-                  onChange={e => { setOrigenId(e.target.value); setDestinoId('') }}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                  required
-                >
-                  <option value="">Seleccionar almacén de origen</option>
-                  {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-                </select>
+                  onChange={v => { setOrigenId(v); setDestinoId('') }}
+                  options={almacenes.map(a => ({ value: a.id, label: a.nombre }))}
+                  placeholder="Seleccionar almacén de origen"
+                />
               )}
             </div>
 
@@ -382,15 +442,12 @@ export default function NuevaTransferencia() {
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Destino</label>
-              <select
+              <SelectModal
                 value={destinoId}
-                onChange={e => setDestinoId(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                required
-              >
-                <option value="">Seleccionar almacén destino</option>
-                {almacenesDestino.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-              </select>
+                onChange={setDestinoId}
+                options={almacenesDestino.map(a => ({ value: a.id, label: a.nombre }))}
+                placeholder="Seleccionar almacén destino"
+              />
             </div>
           </div>
         </div>
@@ -404,16 +461,12 @@ export default function NuevaTransferencia() {
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Quien entrega</label>
               {personalOrigen.length > 0 ? (
-                <select
+                <SelectModal
                   value={entregaId}
-                  onChange={e => setEntregaId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                >
-                  <option value="">Seleccionar persona</option>
-                  {personalOrigen.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre}{p.cargo ? ` - ${p.cargo}` : ''}</option>
-                  ))}
-                </select>
+                  onChange={setEntregaId}
+                  options={personalOrigen.map(p => ({ value: p.id, label: p.nombre + (p.cargo ? ` · ${p.cargo}` : '') }))}
+                  placeholder="Seleccionar persona"
+                />
               ) : origenId ? (
                 <p className="w-full border border-amber-200 bg-amber-50 text-amber-700 rounded-xl px-4 py-3 text-sm">
                   No hay personal registrado para este almacén
@@ -425,16 +478,12 @@ export default function NuevaTransferencia() {
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">Quien recibe</label>
               {personalDestino.length > 0 ? (
-                <select
+                <SelectModal
                   value={recibeId}
-                  onChange={e => setRecibeId(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                >
-                  <option value="">Seleccionar persona</option>
-                  {personalDestino.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre}{p.cargo ? ` - ${p.cargo}` : ''}</option>
-                  ))}
-                </select>
+                  onChange={setRecibeId}
+                  options={personalDestino.map(p => ({ value: p.id, label: p.nombre + (p.cargo ? ` · ${p.cargo}` : '') }))}
+                  placeholder="Seleccionar persona"
+                />
               ) : destinoId ? (
                 <p className="w-full border border-amber-200 bg-amber-50 text-amber-700 rounded-xl px-4 py-3 text-sm">
                   No hay personal registrado para este almacén
