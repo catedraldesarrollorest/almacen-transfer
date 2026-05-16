@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut, RefreshCw, ChevronRight } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle, ArrowRightLeft, LogOut, RefreshCw, ChevronRight, Bell, BellOff } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { formatFechaHora } from '../lib/dateUtils'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export default function Dashboard() {
   const { user, isAdmin, warehouseId, signOut, loading: authLoading } = useAuth()
+  const { status: notifStatus, errorMsg: notifError, subscribe: subscribeNotif, isSupported: notifSupported } = usePushNotifications()
   const navigate = useNavigate()
   const location = useLocation()
   const [stats, setStats] = useState({ pendientes: 0, completadas: 0 })
@@ -87,6 +90,37 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {notifSupported && !isAdmin && (
+              <button
+                onClick={() => {
+                  if (notifStatus === 'error' && notifError) alert('Error notificaciones: ' + notifError)
+                  else subscribeNotif()
+                }}
+                disabled={notifStatus === 'loading'}
+                className="p-2 rounded-lg hover:bg-white/10 transition relative"
+                title={
+                  notifStatus === 'granted' ? 'Notificaciones activas' :
+                  notifStatus === 'denied' ? 'Notificaciones bloqueadas' :
+                  notifStatus === 'error' ? ('Error: ' + notifError) :
+                  'Activar notificaciones'
+                }
+              >
+                {notifStatus === 'granted'
+                  ? <Bell className="w-5 h-5 text-yellow-300" />
+                  : notifStatus === 'denied'
+                  ? <BellOff className="w-5 h-5 text-red-300" />
+                  : notifStatus === 'error'
+                  ? <BellOff className="w-5 h-5 text-orange-300" />
+                  : <Bell className="w-5 h-5 text-red-200" />
+                }
+                {notifStatus === 'idle' && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full" />
+                )}
+                {notifStatus === 'error' && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-orange-400 rounded-full" />
+                )}
+              </button>
+            )}
             <button
               onClick={loadData}
               disabled={loading}
@@ -156,7 +190,7 @@ export default function Dashboard() {
                         {t.origen?.nombre} → {t.destino?.nombre}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(t.created_at).toLocaleString('es', {
+                        {formatFechaHora(t.created_at, {
                           day: '2-digit', month: 'short',
                           hour: '2-digit', minute: '2-digit'
                         })}
