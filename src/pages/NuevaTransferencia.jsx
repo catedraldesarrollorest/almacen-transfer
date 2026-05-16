@@ -88,7 +88,7 @@ export default function NuevaTransferencia() {
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [modalCrear, setModalCrear] = useState(null)
+  const [modalCrear, setModalCrear] = useState(null) // { idx, nombre }
   const [unidadNueva, setUnidadNueva] = useState('')
   const [guardandoProducto, setGuardandoProducto] = useState(false)
   const debounceRef = useRef(null)
@@ -175,6 +175,7 @@ export default function NuevaTransferencia() {
     setProductos(updated)
     setSugerencias([])
     setProductoActivo(null)
+    // Auto-fetch última existencia si el almacén la requiere
     if (tieneExistencia && origenId) {
       fetchUltimaExistencia(origenId, prod.nombre).then(existencia => {
         if (existencia !== null) {
@@ -296,6 +297,7 @@ export default function NuevaTransferencia() {
         return
       }
 
+      // Inserción directa para soportar el campo existencia
       const { data: created, error: errTransfer } = await supabase
         .from('transferencias')
         .insert([transferencia])
@@ -324,6 +326,15 @@ export default function NuevaTransferencia() {
         .from('transferencia_productos')
         .insert(productosParaInsertar)
       if (errProd) throw errProd
+
+      // Enviar notificación push al almacén destino (no bloquea si falla)
+      supabase.functions.invoke('notify-transfer', {
+        body: {
+          destino_id: parseInt(destinoId),
+          origen_nombre: origenNombre,
+          destino_nombre: almacenesDestino.find(a => String(a.id) === destinoId)?.nombre,
+        }
+      }).catch(() => {})
 
       navigate('/')
     } catch (err) {
@@ -359,6 +370,7 @@ export default function NuevaTransferencia() {
         .ilike('producto', nombreProducto.trim())
         .not('existencia', 'is', null)
       if (!prods?.length) return null
+      // Ordenar por la transferencia más reciente (posición en el array ids)
       prods.sort((a, b) => ids.indexOf(a.transferencia_id) - ids.indexOf(b.transferencia_id))
       return prods[0].existencia
     } catch {
