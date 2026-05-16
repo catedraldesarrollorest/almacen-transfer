@@ -6,9 +6,16 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
+      manifestFilename: 'manifest.json',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
+        id: '/',
+        start_url: '/',
+        scope: '/',
         name: 'Transferencias Catedral',
         short_name: 'Catedral',
         description: 'Sistema de transferencias de almacén — La Catedral',
@@ -20,45 +27,25 @@ export default defineConfig({
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            // Supabase API: always fetch fresh data, fall back to cache only when offline
-            urlPattern: /^https:\/\/[^/]+\.supabase\.co\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              networkTimeoutSeconds: 10,
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 5 // cache as fallback for max 5 min
-              }
-            }
-          },
-          {
-            // CDN assets: cache is fine
-            urlPattern: /^https:\/\/.*\.jsdelivr\.net/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'cdn-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24
-              }
-            }
-          }
-        ]
       }
     })
   ]

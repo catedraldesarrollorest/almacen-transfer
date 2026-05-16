@@ -8,6 +8,7 @@ export default function InventarioAdmin() {
   const [almacenesOrden, setAlmacenesOrden] = useState([])
   const [inventario, setInventario] = useState({})
   const [loading, setLoading] = useState(true)
+  const [tabActivo, setTabActivo] = useState(null)
 
   useEffect(() => {
     cargarInventario()
@@ -55,7 +56,6 @@ export default function InventarioAdmin() {
           continue
         }
 
-        // Por cada producto, quedarse con el registro de la transferencia más reciente
         const productoMap = {}
         prods.forEach(p => {
           const posicion = ids.indexOf(p.transferencia_id)
@@ -73,6 +73,9 @@ export default function InventarioAdmin() {
 
       setAlmacenesOrden(almacenesConExistencia)
       setInventario(resultados)
+      if (almacenesConExistencia.length > 0) {
+        setTabActivo(almacenesConExistencia[0].id)
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -80,7 +83,6 @@ export default function InventarioAdmin() {
     }
   }
 
-  // Totales consolidados por producto sumando todos los almacenes
   const totales = {}
   Object.values(inventario).forEach(({ productos }) => {
     productos.forEach(p => {
@@ -92,10 +94,14 @@ export default function InventarioAdmin() {
   })
   const totalesOrdenados = Object.values(totales).sort((a, b) => a.producto.localeCompare(b.producto))
 
+  const datosActivos = tabActivo === 'total'
+    ? null
+    : inventario[tabActivo]
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white p-4 border-b border-gray-200 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/admin')} className="p-2 -ml-2">
               <ArrowLeft className="w-6 h-6 text-gray-700" />
@@ -114,9 +120,38 @@ export default function InventarioAdmin() {
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-primary' : ''}`} />
           </button>
         </div>
+
+        {/* Tabs selector */}
+        {!loading && almacenesOrden.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-3">
+            {almacenesOrden.map(a => (
+              <button
+                key={a.id}
+                onClick={() => setTabActivo(a.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition flex-shrink-0 ${
+                  tabActivo === a.id
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {a.nombre}
+              </button>
+            ))}
+            <button
+              onClick={() => setTabActivo('total')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition flex-shrink-0 ${
+                tabActivo === 'total'
+                  ? 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Total consolidado
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="p-4 space-y-4 pb-8">
+      <div className="p-4 pb-8">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -126,66 +161,55 @@ export default function InventarioAdmin() {
             <Boxes className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>No hay almacenes con existencia habilitada</p>
           </div>
-        ) : (
-          <>
-            {/* Bloque por almacén */}
-            {almacenesOrden.map(almacen => {
-              const datos = inventario[almacen.id]
-              return (
-                <div key={almacen.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                  <div className="bg-primary/5 px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-                    <Package className="w-4 h-4 text-primary" />
-                    <p className="text-sm font-bold text-primary">{almacen.nombre}</p>
-                  </div>
-                  <div className="divide-y divide-gray-50">
-                    {!datos || datos.productos.length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-6">Sin existencias registradas</p>
-                    ) : (
-                      datos.productos.map((p, i) => (
-                        <div key={i} className="flex items-center justify-between px-4 py-3">
-                          <span className="text-sm text-gray-800">{p.producto}</span>
-                          <div className="text-right">
-                            <span className="text-sm font-semibold text-gray-900">
-                              {Number(p.existencia).toLocaleString('es')}
-                            </span>
-                            {p.unidad && (
-                              <span className="text-xs text-gray-400 ml-1">{p.unidad}</span>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-
-            {/* Bloque totales */}
-            {totalesOrdenados.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-gray-800 px-4 py-3 border-b border-gray-700 flex items-center gap-2">
-                  <Boxes className="w-4 h-4 text-white" />
-                  <p className="text-sm font-bold text-white">Total consolidado</p>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {totalesOrdenados.map((p, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3">
-                      <span className="text-sm text-gray-800">{p.producto}</span>
-                      <div className="text-right">
-                        <span className="text-sm font-bold text-gray-900">
-                          {Number(p.total).toLocaleString('es')}
-                        </span>
-                        {p.unidad && (
-                          <span className="text-xs text-gray-400 ml-1">{p.unidad}</span>
-                        )}
-                      </div>
+        ) : tabActivo === 'total' ? (
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-gray-800 px-4 py-3 border-b border-gray-700 flex items-center gap-2">
+              <Boxes className="w-4 h-4 text-white" />
+              <p className="text-sm font-bold text-white">Total consolidado</p>
+            </div>
+            {totalesOrdenados.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Sin existencias registradas</p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {totalesOrdenados.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm text-gray-800">{p.producto}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-gray-900">
+                        {Number(p.total).toLocaleString('es')}
+                      </span>
+                      {p.unidad && <span className="text-xs text-gray-400 ml-1">{p.unidad}</span>}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
-          </>
-        )}
+          </div>
+        ) : datosActivos ? (
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-primary/5 px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              <p className="text-sm font-bold text-primary">{datosActivos.almacen.nombre}</p>
+            </div>
+            {datosActivos.productos.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Sin existencias registradas</p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {datosActivos.productos.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm text-gray-800">{p.producto}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {Number(p.existencia).toLocaleString('es')}
+                      </span>
+                      {p.unidad && <span className="text-xs text-gray-400 ml-1">{p.unidad}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   )

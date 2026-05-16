@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { formatFecha } from '../lib/dateUtils'
 
 export default function Historial() {
   const navigate = useNavigate()
@@ -159,7 +160,7 @@ export default function Historial() {
                         {t.estado}
                       </span>
                       <span className="text-xs text-gray-400">
-                        {new Date(t.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
+                        {formatFecha(t.created_at, { day: '2-digit', month: 'short' })}
                       </span>
                       {expandedId === t.id
                         ? <ChevronUp className="w-4 h-4 text-gray-400 mt-0.5" />
@@ -189,6 +190,9 @@ export default function Historial() {
                               <span className="text-gray-700">{p.producto}</span>
                               <div className="text-right">
                                 <span className="font-medium text-gray-900">{p.cantidad} {p.unidad}</span>
+                                {p.cajas != null && p.unidades_por_caja != null && (
+                                  <span className="block text-xs text-blue-500">↳ {p.cajas} cajas × {p.unidades_por_caja} und/caja</span>
+                                )}
                                 {p.existencia != null && (
                                   <span className="block text-xs text-amber-600">Exist: {p.existencia}</span>
                                 )}

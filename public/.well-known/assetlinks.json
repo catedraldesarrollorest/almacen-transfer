@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.almacen_transfer.twa",
+    "sha256_cert_fingerprints": [
+      "DD:69:D2:0A:83:67:70:F2:4A:34:89:48:26:7F:72:C6:5B:DD:42:10:3B:4C:7C:00:1C:9A:A6:F1:A7:50:E2:F0"
+    ]
+  }
+}]
