@@ -28,13 +28,13 @@ function SelectModal({ value, onChange, options, placeholder, disabled }) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4" onClick={() => setOpen(false)}>
           <div
-            className="bg-white rounded-t-2xl w-full max-w-lg max-h-[70vh] flex flex-col"
+            className="bg-white rounded-2xl w-full max-w-sm max-h-[75vh] flex flex-col shadow-xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-900 text-base">{placeholder}</h3>
+              <h3 className="font-bold text-gray-900 text-base">{placeholder}</h3>
               <button type="button" onClick={() => setOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
@@ -47,11 +47,11 @@ function SelectModal({ value, onChange, options, placeholder, disabled }) {
                     key={opt.value}
                     type="button"
                     onClick={() => { onChange(opt.value); setOpen(false) }}
-                    className={`w-full px-4 py-3.5 text-left flex items-center justify-between transition
+                    className={`w-full px-4 py-3.5 text-left flex items-center justify-between gap-3 transition
                       ${isSelected ? 'bg-primary/5' : 'hover:bg-gray-50'}
                     `}
                   >
-                    <span className={`text-sm ${isSelected ? 'font-semibold text-primary' : 'text-gray-800'}`}>
+                    <span className={`text-base font-bold leading-snug flex-1 min-w-0 ${isSelected ? 'text-primary' : 'text-gray-800'}`}>
                       {opt.label}
                     </span>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition
@@ -88,7 +88,7 @@ export default function NuevaTransferencia() {
   const [productoActivo, setProductoActivo] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [modalCrear, setModalCrear] = useState(null) // { idx, nombre }
+  const [modalCrear, setModalCrear] = useState(null)
   const [unidadNueva, setUnidadNueva] = useState('')
   const [guardandoProducto, setGuardandoProducto] = useState(false)
   const debounceRef = useRef(null)
@@ -175,7 +175,6 @@ export default function NuevaTransferencia() {
     setProductos(updated)
     setSugerencias([])
     setProductoActivo(null)
-    // Auto-fetch última existencia si el almacén la requiere
     if (tieneExistencia && origenId) {
       fetchUltimaExistencia(origenId, prod.nombre).then(existencia => {
         if (existencia !== null) {
@@ -297,7 +296,6 @@ export default function NuevaTransferencia() {
         return
       }
 
-      // Inserción directa para soportar el campo existencia
       const { data: created, error: errTransfer } = await supabase
         .from('transferencias')
         .insert([transferencia])
@@ -361,7 +359,6 @@ export default function NuevaTransferencia() {
         .ilike('producto', nombreProducto.trim())
         .not('existencia', 'is', null)
       if (!prods?.length) return null
-      // Ordenar por la transferencia más reciente (posición en el array ids)
       prods.sort((a, b) => ids.indexOf(a.transferencia_id) - ids.indexOf(b.transferencia_id))
       return prods[0].existencia
     } catch {
