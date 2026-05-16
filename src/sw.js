@@ -29,21 +29,24 @@ registerRoute(
 self.addEventListener('push', (event) => {
   if (!event.data) return
   const data = event.data.json()
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Nueva transferencia', {
-      body: data.body || 'Tienes una transferencia pendiente por autorizar',
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
-      data: { url: data.url || '/autorizar' },
-      vibrate: [200, 100, 200],
-      requireInteraction: true,
-    })
-  )
+  const showNotif = self.registration.showNotification(data.title || 'Nueva transferencia', {
+    body: data.body || 'Tienes una transferencia pendiente por autorizar',
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    data: { url: data.url || '/autorizar', count: data.count || 1 },
+    vibrate: [200, 100, 200],
+    requireInteraction: true,
+  })
+  const setBadge = 'setAppBadge' in self.navigator
+    ? self.navigator.setAppBadge(data.count || 1)
+    : Promise.resolve()
+  event.waitUntil(Promise.all([showNotif, setBadge]))
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = event.notification.data?.url || '/autorizar'
+  if ('clearAppBadge' in self.navigator) self.navigator.clearAppBadge()
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
