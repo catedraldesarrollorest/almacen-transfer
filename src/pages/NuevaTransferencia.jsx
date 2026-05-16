@@ -330,9 +330,8 @@ export default function NuevaTransferencia() {
       // Enviar notificación push al almacén destino (no bloquea si falla)
       supabase.functions.invoke('notify-transfer', {
         body: {
+          origen_id: parseInt(origenId),
           destino_id: parseInt(destinoId),
-          origen_nombre: origenNombre,
-          destino_nombre: almacenesDestino.find(a => String(a.id) === destinoId)?.nombre,
         }
       }).catch(() => {})
 
