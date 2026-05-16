@@ -1,7 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { OfflineProvider } from './contexts/OfflineContext'
-import { usePushNotifications } from './hooks/usePushNotifications'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import NuevaTransferencia from './pages/NuevaTransferencia'
@@ -17,16 +16,10 @@ import InventarioAdmin from './pages/InventarioAdmin'
 import NoLeidas from './pages/NoLeidas'
 import Layout from './components/Layout'
 
-function PushInit() {
-  usePushNotifications()
-  return null
-}
-
 function App() {
   return (
     <AuthProvider>
       <OfflineProvider>
-        <PushInit />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<Layout />}>

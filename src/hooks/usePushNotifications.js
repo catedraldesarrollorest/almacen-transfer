@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -12,19 +12,26 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 export function usePushNotifications() {
-  const { warehouseId, loading } = useAuth()
+  const { warehouseId, loading: authLoading } = useAuth()
+  const [status, setStatus] = useState('idle') // idle | loading | granted | denied | error
+
+  const isSupported = typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
 
   const subscribe = useCallback(async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-    if (!warehouseId) return
-
+    if (!isSupported || !warehouseId) return false
+    setStatus('loading')
     try {
       const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return
+      if (permission !== 'granted') {
+        setStatus('denied')
+        return false
+      }
 
       const registration = await navigator.serviceWorker.ready
       let subscription = await registration.pushManager.getSubscription()
-
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -32,21 +39,31 @@ export function usePushNotifications() {
         })
       }
 
-      const { endpoint, keys } = subscription.toJSON()
-      await supabase.from('push_subscriptions').upsert(
-        { warehouse_id: warehouseId, endpoint, p256dh: keys.p256dh, auth: keys.auth },
+      const sub = subscription.toJSON()
+      const { error } = await supabase.from('push_subscriptions').upsert(
+        { warehouse_id: warehouseId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
         { onConflict: 'endpoint' }
       )
-    } catch (err) {
-      console.error('Push subscription failed:', err)
-    }
-  }, [warehouseId])
+      if (error) throw error
 
-  useEffect(() => {
-    if (!loading && warehouseId) {
-      // Delay to avoid blocking initial render
-      const timer = setTimeout(subscribe, 3000)
-      return () => clearTimeout(timer)
+      setStatus('granted')
+      return true
+    } catch (err) {
+      console.error('Push subscribe error:', err)
+      setStatus('error')
+      return false
     }
-  }, [loading, warehouseId, subscribe])
+  }, [warehouseId, isSupported])
+
+  // Auto-subscribe on first load if permission already granted
+  useEffect(() => {
+    if (authLoading || !warehouseId || !isSupported) return
+    if (Notification.permission === 'granted') {
+      subscribe()
+    } else {
+      setStatus(Notification.permission === 'denied' ? 'denied' : 'idle')
+    }
+  }, [authLoading, warehouseId])
+
+  return { status, subscribe, isSupported }
 }

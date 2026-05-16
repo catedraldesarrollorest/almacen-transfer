@@ -3,6 +3,9 @@ import { registerRoute } from 'workbox-routing'
 import { NetworkFirst, CacheFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 
+self.skipWaiting()
+self.addEventListener('activate', () => self.clients.claim())
+
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
