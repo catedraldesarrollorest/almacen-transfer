@@ -7,6 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      manifestFilename: 'manifest.json',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         id: '/',
@@ -44,7 +45,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
-            // Supabase API: always fetch fresh data, fall back to cache only when offline
             urlPattern: /^https:\/\/[^/]+\.supabase\.co\//,
             handler: 'NetworkFirst',
             options: {
@@ -52,12 +52,11 @@ export default defineConfig({
               networkTimeoutSeconds: 10,
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 5 // cache as fallback for max 5 min
+                maxAgeSeconds: 60 * 5
               }
             }
           },
           {
-            // CDN assets: cache is fine
             urlPattern: /^https:\/\/.*\.jsdelivr\.net/,
             handler: 'CacheFirst',
             options: {
