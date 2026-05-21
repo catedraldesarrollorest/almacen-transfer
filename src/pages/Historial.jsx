@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package, RefreshCw, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { formatFecha } from '../lib/dateUtils'
+
+const PAGE_SIZE = 100
 
 export default function Historial() {
   const navigate = useNavigate()
@@ -11,49 +13,108 @@ export default function Historial() {
   const { isAdmin, warehouseId, loading: authLoading } = useAuth()
   const [transferencias, setTransferencias] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [offset, setOffset] = useState(0)
   const [busqueda, setBusqueda] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
   const [expandedId, setExpandedId] = useState(null)
+  const debounceRef = useRef(null)
 
-  const loadHistorial = useCallback(async () => {
-    setLoading(true)
+  // Debounce busqueda → debouncedQuery (400ms)
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(busqueda.trim().toLowerCase())
+    }, 400)
+    return () => clearTimeout(debounceRef.current)
+  }, [busqueda])
+
+  const fetchPage = useCallback(async ({ query, estado, currentOffset, append }) => {
+    append ? setLoadingMore(true) : setLoading(true)
     try {
-      let query = supabase
-        .from('transferencias')
-        .select('*, origen:origen_id(nombre), destino:destino_id(nombre), productos:transferencia_productos(*)')
-        .order('created_at', { ascending: false })
-        .limit(100)
+      let transfers = []
 
-      if (!isAdmin && warehouseId) {
-        query = query.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
+      if (query) {
+        // Search mode: look up matching IDs first, then query transfers
+        const [{ data: wMatches }, { data: pMatches }] = await Promise.all([
+          supabase.from('warehouses').select('id').ilike('nombre', `%${query}%`).limit(200),
+          supabase.from('transferencia_productos').select('transferencia_id').ilike('producto', `%${query}%`).limit(500),
+        ])
+
+        const wIds = wMatches?.map(w => w.id) || []
+        const tIds = [...new Set(pMatches?.map(p => p.transferencia_id) || [])]
+
+        const searchParts = [
+          `entrega_nombre.ilike.%${query}%`,
+          `recibe_nombre.ilike.%${query}%`,
+          `codigo_qr.ilike.%${query}%`,
+        ]
+        wIds.forEach(id => {
+          searchParts.push(`origen_id.eq.${id}`)
+          searchParts.push(`destino_id.eq.${id}`)
+        })
+        if (tIds.length) searchParts.push(`id.in.(${tIds.join(',')})`)
+
+        let q = supabase
+          .from('transferencias')
+          .select('*, origen:origen_id(nombre), destino:destino_id(nombre), productos:transferencia_productos(*)')
+          .or(searchParts.join(','))
+          .order('created_at', { ascending: false })
+          .range(currentOffset, currentOffset + PAGE_SIZE - 1)
+
+        if (!isAdmin && warehouseId) q = q.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
+        if (estado !== 'todos') q = q.eq('estado', estado)
+
+        const { data } = await q
+        transfers = data || []
+      } else {
+        // Browse mode: simple paginated query
+        let q = supabase
+          .from('transferencias')
+          .select('*, origen:origen_id(nombre), destino:destino_id(nombre), productos:transferencia_productos(*)')
+          .order('created_at', { ascending: false })
+          .range(currentOffset, currentOffset + PAGE_SIZE - 1)
+
+        if (!isAdmin && warehouseId) q = q.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
+        if (estado !== 'todos') q = q.eq('estado', estado)
+
+        const { data } = await q
+        transfers = data || []
       }
 
-      const { data, error } = await query
-      if (!error && data) setTransferencias(data)
+      setHasMore(transfers.length === PAGE_SIZE)
+      setOffset(currentOffset + transfers.length)
+      setTransferencias(prev => append ? [...prev, ...transfers] : transfers)
     } catch (e) {
       console.error(e)
     } finally {
-      setLoading(false)
+      append ? setLoadingMore(false) : setLoading(false)
     }
   }, [isAdmin, warehouseId])
 
+  // Reset and reload when query/filter/auth changes
   useEffect(() => {
-    if (!authLoading) loadHistorial()
-  }, [authLoading, loadHistorial, location.key])
+    if (authLoading) return
+    setOffset(0)
+    setHasMore(false)
+    fetchPage({ query: debouncedQuery, estado: filtroEstado, currentOffset: 0, append: false })
+  }, [authLoading, fetchPage, debouncedQuery, filtroEstado, location.key])
 
-  const q = busqueda.toLowerCase().trim()
+  function loadMore() {
+    if (loadingMore || !hasMore) return
+    fetchPage({ query: debouncedQuery, estado: filtroEstado, currentOffset: offset, append: true })
+  }
 
-  const filtradas = transferencias.filter(t => {
-    const matchEstado = filtroEstado === 'todos' || t.estado === filtroEstado
-    const matchBusqueda = !q ||
-      t.origen?.nombre?.toLowerCase().includes(q) ||
-      t.destino?.nombre?.toLowerCase().includes(q) ||
-      t.codigo_qr?.toLowerCase().includes(q) ||
-      t.entrega_nombre?.toLowerCase().includes(q) ||
-      t.recibe_nombre?.toLowerCase().includes(q) ||
-      t.productos?.some(p => p.producto?.toLowerCase().includes(q))
-    return matchEstado && matchBusqueda
-  })
+  function refresh() {
+    setOffset(0)
+    setHasMore(false)
+    fetchPage({ query: debouncedQuery, estado: filtroEstado, currentOffset: 0, append: false })
+  }
+
+  // Client-side highlight only — filtering is server-side now
+  const q = debouncedQuery
 
   const estadoColor = {
     pendiente: 'bg-amber-100 text-amber-700',
@@ -73,7 +134,7 @@ export default function Historial() {
             </h1>
           </div>
           <button
-            onClick={loadHistorial}
+            onClick={refresh}
             disabled={loading}
             className="p-2 text-gray-500 hover:text-primary transition"
             title="Actualizar"
@@ -115,9 +176,9 @@ export default function Historial() {
               {estado === 'todos' ? 'Todos' : estado.charAt(0).toUpperCase() + estado.slice(1)}
             </button>
           ))}
-          {q && (
+          {q && !loading && (
             <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 whitespace-nowrap">
-              {filtradas.length} resultado{filtradas.length !== 1 ? 's' : ''}
+              {transferencias.length}{hasMore ? '+' : ''} resultado{transferencias.length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -128,17 +189,16 @@ export default function Historial() {
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
-        ) : filtradas.length === 0 ? (
+        ) : transferencias.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <ArrowRightLeft className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>{q ? `Sin resultados para "${busqueda}"` : 'No hay transferencias'}</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {filtradas.map(t => {
+            {transferencias.map(t => {
               const isOpen = expandedId === t.id
               const productos = t.productos || []
-              // Highlight matching products when searching
               const matchingProds = q
                 ? productos.filter(p => p.producto?.toLowerCase().includes(q))
                 : []
@@ -162,7 +222,6 @@ export default function Historial() {
                           {t.entrega_nombre && <span>Entrega: {t.entrega_nombre}</span>}
                           {t.recibe_nombre && <span>Recibe: {t.recibe_nombre}</span>}
                         </div>
-                        {/* Show matching products as preview when searching */}
                         {matchingProds.length > 0 && !isOpen && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
                             {matchingProds.map((p, i) => (
@@ -224,6 +283,19 @@ export default function Historial() {
                 </div>
               )
             })}
+
+            {hasMore && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full py-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition flex items-center justify-center gap-2 shadow-sm"
+              >
+                {loadingMore
+                  ? <><div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> Cargando...</>
+                  : '⬇ Cargar 100 más'
+                }
+              </button>
+            )}
           </div>
         )}
       </div>
