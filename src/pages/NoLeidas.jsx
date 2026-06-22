@@ -22,6 +22,7 @@ export default function NoLeidas() {
       const { data: leidas } = await supabase
         .from('transferencias_leidas')
         .select('transferencia_id')
+        .limit(10000)
       const leidasIds = (leidas || []).map(l => l.transferencia_id)
 
       let query = supabase
