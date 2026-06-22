@@ -19,23 +19,8 @@ export default function NoLeidas() {
   async function cargarNoLeidas() {
     setLoading(true)
     try {
-      const { data: leidas } = await supabase
-        .from('transferencias_leidas')
-        .select('transferencia_id')
-        .limit(10000)
-      const leidasIds = (leidas || []).map(l => l.transferencia_id)
-
-      let query = supabase
-        .from('transferencias')
-        .select('*, origen:origen_id(nombre), destino:destino_id(nombre)')
-        .order('created_at', { ascending: false })
-        .limit(100)
-
-      if (leidasIds.length > 0) {
-        query = query.not('id', 'in', `(${leidasIds.join(',')})`)
-      }
-
-      const { data } = await query
+      const { data, error } = await supabase.rpc('get_no_leidas', { p_limit: 100 })
+      if (error) throw error
       setNoLeidas(data || [])
     } catch (e) {
       console.error(e)
