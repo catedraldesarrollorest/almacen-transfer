@@ -15,21 +15,9 @@ export default function Admin() {
 
   async function cargarConteo() {
     try {
-      const { data: leidas } = await supabase
-        .from('transferencias_leidas')
-        .select('transferencia_id')
-      const leidasIds = (leidas || []).map(l => l.transferencia_id)
-
-      let query = supabase
-        .from('transferencias')
-        .select('id', { count: 'exact', head: true })
-
-      if (leidasIds.length > 0) {
-        query = query.not('id', 'in', `(${leidasIds.join(',')})`)
-      }
-
-      const { count } = await query
-      setConteoNoLeidas(count || 0)
+      const { data, error } = await supabase.rpc('count_no_leidas')
+      if (error) throw error
+      setConteoNoLeidas(data || 0)
     } catch (e) {
       console.error(e)
     }
