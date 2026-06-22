@@ -10,11 +10,10 @@ cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
 registerRoute(
-  ({ url }) => url.hostname.endsWith('.supabase.co'),
-  new NetworkFirst({
-    cacheName: 'supabase-cache',
-    networkTimeoutSeconds: 10,
-    plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 5 })]
+  ({ url }) => url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/storage/'),
+  new CacheFirst({
+    cacheName: 'supabase-storage-cache',
+    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 })]
   })
 )
 
@@ -25,6 +24,14 @@ registerRoute(
     plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 })]
   })
 )
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'CLEAR_CACHES') {
+    caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))))
+      .then(() => self.clients.matchAll())
+      .then(cls => cls.forEach(c => c.postMessage('CACHES_CLEARED')))
+  }
+})
 
 self.addEventListener('push', (event) => {
   if (!event.data) return
