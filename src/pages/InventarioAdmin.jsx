@@ -25,7 +25,7 @@ export default function InventarioAdmin() {
 
       const almacenesConExistencia = (warehouses || []).filter(w => {
         const n = w.nombre.toLowerCase()
-        return n.includes('central') || n.includes('ciudad libertad') || n.includes('copmar')
+        return n.includes('central') || n.includes('ciudad libertad') || n.includes('copmar') || n.includes('carnicer')
       })
 
       const resultados = {}
