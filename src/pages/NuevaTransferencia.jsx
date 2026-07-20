@@ -347,7 +347,7 @@ export default function NuevaTransferencia() {
   const origenAlmacen = almacenes.find(a => String(a.id) === origenId)
   const origenNombre = origenAlmacen?.nombre
   const _nombre = origenAlmacen?.nombre?.toLowerCase() || ''
-  const tieneExistencia = _nombre.includes('central') || _nombre.includes('ciudad libertad') || _nombre.includes('copmar')
+  const tieneExistencia = _nombre.includes('central') || _nombre.includes('ciudad libertad') || _nombre.includes('copmar') || _nombre.includes('carnicer')
   const esCiudadLibertad = _nombre.includes('ciudad libertad')
   const _wName = user?.warehouseName?.toLowerCase() || ''
   const puedeCrearProducto = isAdmin || _wName === 'almacén deliver' || _wName === 'almacen deliver'
