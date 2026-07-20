@@ -25,7 +25,7 @@ export default function InventarioAdmin() {
 
       const almacenesConExistencia = (warehouses || []).filter(w => {
         const n = w.nombre.toLowerCase()
-        return n.includes('central') || n.includes('ciudad libertad') || n.includes('copmar')
+        return n.includes('central') || n.includes('ciudad libertad') || n.includes('copmar') || n.includes('carnicer')
       })
 
       const resultados = {}
@@ -121,6 +121,7 @@ export default function InventarioAdmin() {
           </button>
         </div>
 
+        {/* Tabs selector */}
         {!loading && almacenesOrden.length > 0 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-3">
             {almacenesOrden.map(a => (
