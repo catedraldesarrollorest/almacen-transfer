@@ -1,11 +1,63 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package, RefreshCw, X } from 'lucide-react'
+import { ArrowLeft, Search, ArrowRightLeft, ChevronDown, ChevronUp, Package, RefreshCw, X, Download, Filter } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { formatFecha } from '../lib/dateUtils'
 
 const PAGE_SIZE = 100
+
+function exportCSV(transferencias, filtros) {
+  const rows = []
+  rows.push(['Fecha', 'Origen', 'Destino', 'Entrega', 'Recibe', 'Estado', 'Producto', 'Cantidad', 'Unidad', 'Existencia', 'Cajas', 'Und/Caja', 'Código QR'])
+
+  transferencias.forEach(t => {
+    const prods = t.productos || []
+    if (prods.length === 0) {
+      rows.push([
+        formatFecha(t.created_at, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        t.origen?.nombre || '',
+        t.destino?.nombre || '',
+        t.entrega_nombre || '',
+        t.recibe_nombre || '',
+        t.estado || '',
+        '', '', '', '', '', '',
+        t.codigo_qr || '',
+      ])
+    } else {
+      prods.forEach(p => {
+        rows.push([
+          formatFecha(t.created_at, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          t.origen?.nombre || '',
+          t.destino?.nombre || '',
+          t.entrega_nombre || '',
+          t.recibe_nombre || '',
+          t.estado || '',
+          p.producto || '',
+          p.cantidad ?? '',
+          p.unidad || '',
+          p.existencia ?? '',
+          p.cajas ?? '',
+          p.unidades_por_caja ?? '',
+          t.codigo_qr || '',
+        ])
+      })
+    }
+  })
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const partes = ['historial']
+  if (filtros.origen) partes.push(`desde-${filtros.origen}`)
+  if (filtros.destino) partes.push(`hacia-${filtros.destino}`)
+  if (filtros.estado !== 'todos') partes.push(filtros.estado)
+  a.download = partes.join('_') + '.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function Historial() {
   const navigate = useNavigate()
@@ -19,10 +71,18 @@ export default function Historial() {
   const [busqueda, setBusqueda] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('todos')
+  const [filtroOrigen, setFiltroOrigen] = useState('')
+  const [filtroDestino, setFiltroDestino] = useState('')
+  const [almacenes, setAlmacenes] = useState([])
+  const [showFiltros, setShowFiltros] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const debounceRef = useRef(null)
 
-  // Debounce busqueda → debouncedQuery (400ms)
+  useEffect(() => {
+    supabase.from('warehouses').select('id, nombre').eq('activo', true).order('nombre')
+      .then(({ data }) => setAlmacenes(data || []))
+  }, [])
+
   useEffect(() => {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
@@ -31,13 +91,12 @@ export default function Historial() {
     return () => clearTimeout(debounceRef.current)
   }, [busqueda])
 
-  const fetchPage = useCallback(async ({ query, estado, currentOffset, append }) => {
+  const fetchPage = useCallback(async ({ query, estado, origenId, destinoId, currentOffset, append }) => {
     append ? setLoadingMore(true) : setLoading(true)
     try {
       let transfers = []
 
       if (query) {
-        // Search mode: look up matching IDs first, then query transfers
         const [{ data: wMatches }, { data: pMatches }] = await Promise.all([
           supabase.from('warehouses').select('id').ilike('nombre', `%${query}%`).limit(200),
           supabase.from('transferencia_productos').select('transferencia_id').ilike('producto', `%${query}%`).limit(500),
@@ -66,11 +125,12 @@ export default function Historial() {
 
         if (!isAdmin && warehouseId) q = q.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
         if (estado !== 'todos') q = q.eq('estado', estado)
+        if (origenId) q = q.eq('origen_id', origenId)
+        if (destinoId) q = q.eq('destino_id', destinoId)
 
         const { data } = await q
         transfers = data || []
       } else {
-        // Browse mode: simple paginated query
         let q = supabase
           .from('transferencias')
           .select('*, origen:origen_id(nombre), destino:destino_id(nombre), productos:transferencia_productos(*)')
@@ -79,6 +139,8 @@ export default function Historial() {
 
         if (!isAdmin && warehouseId) q = q.or(`origen_id.eq.${warehouseId},destino_id.eq.${warehouseId}`)
         if (estado !== 'todos') q = q.eq('estado', estado)
+        if (origenId) q = q.eq('origen_id', origenId)
+        if (destinoId) q = q.eq('destino_id', destinoId)
 
         const { data } = await q
         transfers = data || []
@@ -94,32 +156,41 @@ export default function Historial() {
     }
   }, [isAdmin, warehouseId])
 
-  // Reset and reload when query/filter/auth changes
   useEffect(() => {
     if (authLoading) return
     setOffset(0)
     setHasMore(false)
-    fetchPage({ query: debouncedQuery, estado: filtroEstado, currentOffset: 0, append: false })
-  }, [authLoading, fetchPage, debouncedQuery, filtroEstado, location.key])
+    fetchPage({ query: debouncedQuery, estado: filtroEstado, origenId: filtroOrigen, destinoId: filtroDestino, currentOffset: 0, append: false })
+  }, [authLoading, fetchPage, debouncedQuery, filtroEstado, filtroOrigen, filtroDestino, location.key])
 
   function loadMore() {
     if (loadingMore || !hasMore) return
-    fetchPage({ query: debouncedQuery, estado: filtroEstado, currentOffset: offset, append: true })
+    fetchPage({ query: debouncedQuery, estado: filtroEstado, origenId: filtroOrigen, destinoId: filtroDestino, currentOffset: offset, append: true })
   }
 
   function refresh() {
     setOffset(0)
     setHasMore(false)
-    fetchPage({ query: debouncedQuery, estado: filtroEstado, currentOffset: 0, append: false })
+    fetchPage({ query: debouncedQuery, estado: filtroEstado, origenId: filtroOrigen, destinoId: filtroDestino, currentOffset: 0, append: false })
   }
 
-  // Client-side highlight only — filtering is server-side now
+  function limpiarFiltros() {
+    setFiltroOrigen('')
+    setFiltroDestino('')
+    setFiltroEstado('todos')
+    setBusqueda('')
+  }
+
   const q = debouncedQuery
+  const filtrosActivos = filtroOrigen || filtroDestino || filtroEstado !== 'todos' || busqueda
 
   const estadoColor = {
     pendiente: 'bg-amber-100 text-amber-700',
     completado: 'bg-green-100 text-green-700',
   }
+
+  const nombreOrigen = almacenes.find(a => String(a.id) === String(filtroOrigen))?.nombre
+  const nombreDestino = almacenes.find(a => String(a.id) === String(filtroDestino))?.nombre
 
   return (
     <div className="min-h-screen bg-gray-50 max-w-4xl mx-auto md:rounded-2xl md:shadow-sm md:overflow-hidden md:border border-gray-100">
@@ -133,14 +204,35 @@ export default function Historial() {
               {isAdmin ? 'Historial completo' : 'Mi historial'}
             </h1>
           </div>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            className="p-2 text-gray-500 hover:text-primary transition"
-            title="Actualizar"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-primary' : ''}`} />
-          </button>
+          <div className="flex items-center gap-1">
+            {!loading && transferencias.length > 0 && (
+              <button
+                onClick={() => exportCSV(transferencias, { origen: nombreOrigen, destino: nombreDestino, estado: filtroEstado })}
+                className="p-2 text-gray-500 hover:text-green-600 transition"
+                title="Exportar CSV"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => setShowFiltros(v => !v)}
+              className={`p-2 transition relative ${showFiltros || filtroOrigen || filtroDestino ? 'text-primary' : 'text-gray-500 hover:text-primary'}`}
+              title="Filtros de almacén"
+            >
+              <Filter className="w-5 h-5" />
+              {(filtroOrigen || filtroDestino) && (
+                <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={refresh}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-primary transition"
+              title="Actualizar"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-primary' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="relative mb-3">
@@ -162,6 +254,47 @@ export default function Historial() {
           )}
         </div>
 
+        {showFiltros && (
+          <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Origen</label>
+                <select
+                  value={filtroOrigen}
+                  onChange={e => setFiltroOrigen(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">Todos</option>
+                  {almacenes.map(a => (
+                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Destino</label>
+                <select
+                  value={filtroDestino}
+                  onChange={e => setFiltroDestino(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">Todos</option>
+                  {almacenes.map(a => (
+                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {(filtroOrigen || filtroDestino) && (
+              <button
+                onClick={() => { setFiltroOrigen(''); setFiltroDestino('') }}
+                className="text-xs text-red-500 hover:text-red-700 font-medium"
+              >
+                Limpiar filtros de almacén
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
           {['todos', 'pendiente', 'completado'].map(estado => (
             <button
@@ -176,7 +309,19 @@ export default function Historial() {
               {estado === 'todos' ? 'Todos' : estado.charAt(0).toUpperCase() + estado.slice(1)}
             </button>
           ))}
-          {q && !loading && (
+          {filtroOrigen && (
+            <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary whitespace-nowrap flex items-center gap-1">
+              Desde: {nombreOrigen}
+              <button onClick={() => setFiltroOrigen('')}><X className="w-3 h-3" /></button>
+            </span>
+          )}
+          {filtroDestino && (
+            <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary whitespace-nowrap flex items-center gap-1">
+              Hacia: {nombreDestino}
+              <button onClick={() => setFiltroDestino('')}><X className="w-3 h-3" /></button>
+            </span>
+          )}
+          {!loading && (q || filtroOrigen || filtroDestino || filtroEstado !== 'todos') && (
             <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 whitespace-nowrap">
               {transferencias.length}{hasMore ? '+' : ''} resultado{transferencias.length !== 1 ? 's' : ''}
             </span>
@@ -192,7 +337,12 @@ export default function Historial() {
         ) : transferencias.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <ArrowRightLeft className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>{q ? `Sin resultados para "${busqueda}"` : 'No hay transferencias'}</p>
+            <p>{filtrosActivos ? 'Sin resultados para los filtros aplicados' : 'No hay transferencias'}</p>
+            {filtrosActivos && (
+              <button onClick={limpiarFiltros} className="mt-3 text-sm text-primary font-medium">
+                Limpiar filtros
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
